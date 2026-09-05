@@ -492,7 +492,7 @@ if st.button("💬  Explain this incident", key=f"explain_btn_{inc['id']}"):
 
 if ai_key in st.session_state:
     result = st.session_state[ai_key]
-    source_label = "🤖 Gemini-generated" if result["source"] == "ai" else "📋 Template-based (no API key set)"
+    source_label = "🤖 Groq-generated" if result["source"] == "ai" else "📋 Template-based (no API key set)"
     st.markdown(f"""
     <div class="ix-card" style="border-left: 3px solid {ACCENT};">
         <div class="ix-kpi-label" style="margin-bottom:8px;">{source_label}</div>

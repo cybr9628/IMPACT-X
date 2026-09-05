@@ -2,5 +2,5 @@ networkx
 streamlit
 pandas
 plotly
-google-genai
+groq
 python-dotenv

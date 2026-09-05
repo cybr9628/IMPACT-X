@@ -4,9 +4,9 @@ Takes an incident + its blast radius + risk score (Phases 5-7) and produces
 a plain-language explanation of why it matters, grounded in the actual
 graph data — not a generic canned response.
 
-Uses Google's Gemini API (free tier via Google AI Studio, no billing
-required) when a GEMINI_API_KEY environment variable is set. If not set,
-or if the API call fails for any reason, falls back to a deterministic
+Uses Groq (free tier, no billing required, very low latency) when a
+GROQ_API_KEY environment variable (or .env entry) is set. If not set, or
+if the API call fails for any reason, falls back to a deterministic
 template built from the same data — so the demo never breaks without
 internet/API access.
 """
@@ -20,29 +20,29 @@ from dotenv import load_dotenv
 # We build an explicit path (rather than relying on load_dotenv()'s default
 # search from the current working directory) so this works identically no
 # matter how or from where the script is launched — terminal, VS Code's Run
-# button, or main.py.
+# button, main.py, or Streamlit Cloud (which uses its own Secrets manager
+# instead of a .env file, but this line is harmless if no .env exists).
 _ENV_PATH = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path=_ENV_PATH)
 
-# gemini-3.6-flash is Google's current fast/free-tier model as of this
-# writing. If Google retires this model too, the error message from a
-# failed API call will name the current replacement — update here.
-MODEL = "gemini-3.6-flash"
+# llama-3.3-70b-versatile is a strong, free-tier Groq model with fast
+# responses — good balance of quality and speed for live-demo explanations.
+MODEL = "llama-3.3-70b-versatile"
 
 _client = None
 
 
 def _get_client():
-    """Lazily creates the Gemini client only if a key is present,
+    """Lazily creates the Groq client only if a key is present,
     so importing this module never fails when the SDK/key is missing."""
     global _client
-    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         return None
     if _client is None:
         try:
-            from google import genai
-            _client = genai.Client(api_key=api_key)
+            from groq import Groq
+            _client = Groq(api_key=api_key)
         except ImportError:
             return None
     return _client
@@ -131,10 +131,15 @@ def _fallback_explanation(incident, blast_radius, risk):
     return " ".join(lines)
 
 
-def _call_gemini(client, prompt):
+def _call_groq(client, prompt):
     """Runs the actual API call — used inside a timeout wrapper below."""
-    response = client.models.generate_content(model=MODEL, contents=prompt)
-    return response.text.strip()
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=300,
+        temperature=0.4,
+    )
+    return response.choices[0].message.content.strip()
 
 
 def explain_incident(incident, blast_radius, risk, max_retries=2, timeout_seconds=20):
@@ -144,11 +149,11 @@ def explain_incident(incident, blast_radius, risk, max_retries=2, timeout_second
     - incident: dict from INCIDENTS/USERS join (as produced by risk_engine.score_incident)
     - blast_radius: dict from blast_radius.calculate_blast_radius()
     - risk: dict from risk_engine.calculate_risk_score()
-    - max_retries: number of extra attempts if Google's API is temporarily
-      overloaded (503 UNAVAILABLE) before falling back to the template.
+    - max_retries: number of extra attempts if Groq is temporarily unavailable
+      before falling back to the template.
     - timeout_seconds: hard ceiling per attempt. If the network stalls (no
-      response at all — not even an error), this ensures we never hang
-      indefinitely and always fall back to the template within this time.
+      response at all), this ensures we never hang indefinitely and always
+      fall back to the template within this time.
     """
     client = _get_client()
 
@@ -161,16 +166,16 @@ def explain_incident(incident, blast_radius, risk, max_retries=2, timeout_second
     for attempt in range(max_retries + 1):
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(_call_gemini, client, prompt)
+                future = executor.submit(_call_groq, client, prompt)
                 text = future.result(timeout=timeout_seconds)
             return {"explanation": text, "source": "ai"}
         except concurrent.futures.TimeoutError:
-            last_error = f"Timed out after {timeout_seconds}s (no response from Gemini)."
-            break  # a stalled connection is unlikely to resolve on retry — go straight to fallback
+            last_error = f"Timed out after {timeout_seconds}s (no response from Groq)."
+            break
         except Exception as e:
             last_error = str(e)
-            if attempt < max_retries and "UNAVAILABLE" in last_error:
-                time.sleep(1.5)  # brief pause before retrying an overloaded model
+            if attempt < max_retries and ("UNAVAILABLE" in last_error or "503" in last_error):
+                time.sleep(1.5)
                 continue
             break
 
@@ -192,9 +197,9 @@ if __name__ == "__main__":
     graph = build_graph()
     result = score_incident(incidents[0]["id"], graph=graph)
 
-    print("=== AI Analyst (source will show 'template' unless GEMINI_API_KEY is set) ===")
+    print("=== AI Analyst (source will show 'template' unless GROQ_API_KEY is set) ===")
     output = explain_incident(result["incident"], result["blast_radius"], result["risk"])
-    print(f"[source: {output['source']}]\n")
+    print(f"[source: {output['source']}]")
     if "error" in output:
-        print(f"[ERROR DETAIL: {output['error']}]\n")
+        print(f"[ERROR DETAIL: {output['error']}]")
     print(output["explanation"])
