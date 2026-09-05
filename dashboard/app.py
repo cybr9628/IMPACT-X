@@ -28,6 +28,14 @@ from risk_engine import prioritize_all_open_incidents, score_incident
 from graph_engine import build_graph
 from ai_analyst import explain_incident
 
+# Auto-build the database on first run (e.g. a fresh cloud deployment where
+# data/impact_x.db doesn't exist yet). Safe to call every time locally too —
+# it's a fast, idempotent no-op check.
+_DB_PATH = os.path.join(BACKEND_DIR, "..", "data", "impact_x.db")
+if not os.path.exists(_DB_PATH):
+    from database import build_database
+    build_database()
+
 st.set_page_config(page_title="IMPACT-X", layout="wide", page_icon="🛰️", initial_sidebar_state="expanded")
 
 # ============================================================
