@@ -27,6 +27,7 @@ from incident_engine import simulate_incident, get_all_incidents, clear_incident
 from risk_engine import prioritize_all_open_incidents, score_incident
 from graph_engine import build_graph
 from ai_analyst import explain_incident
+from auth import init_auth_table, create_user, verify_user, validate_signup_input
 
 # Auto-build the database on first run (e.g. a fresh cloud deployment where
 # data/impact_x.db doesn't exist yet). Safe to call every time locally too —
@@ -35,6 +36,10 @@ _DB_PATH = os.path.join(BACKEND_DIR, "..", "data", "impact_x.db")
 if not os.path.exists(_DB_PATH):
     from database import build_database
     build_database()
+
+# Ensure the login/sign-up accounts table exists. This is independent of
+# the simulated org data above and is never wiped by a database rebuild.
+init_auth_table()
 
 st.set_page_config(page_title="IMPACT-X", layout="wide", page_icon="🛰️", initial_sidebar_state="expanded")
 
@@ -151,6 +156,22 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
     border-radius: 8px;
     border: 1px solid #1C2433;
 }}
+
+/* ============================================================
+   MOBILE RESPONSIVENESS
+   Everything below this line ONLY applies when the browser
+   viewport is 768px wide or less (phones/small tablets).
+   Desktop layout above this breakpoint is completely untouched.
+   ============================================================ */
+@media (max-width: 768px) {{
+    .ix-hero-title {{ font-size: 1.6rem !important; }}
+    .ix-hero-sub {{ font-size: 0.82rem !important; }}
+    .ix-eyebrow {{ font-size: 0.62rem !important; }}
+    .ix-kpi-value {{ font-size: 1.4rem !important; }}
+    .ix-section-title {{ font-size: 0.98rem !important; }}
+    .ix-card {{ padding: 12px 14px !important; }}
+    [data-testid="stDataFrame"] {{ font-size: 0.75rem !important; }}
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -160,16 +181,109 @@ def risk_badge(status):
     return f'<span class="ix-badge" style="background:{color}22; color:{color}; border:1px solid {color}55;">{status}</span>'
 
 
+def rate_limited(action_key, cooldown_seconds):
+    """
+    Simple per-session cooldown check using Streamlit's session_state.
+    Returns True if the action is allowed right now (and records the
+    timestamp), or False if it's still within the cooldown window.
+    Protects against accidental rapid-fire clicks burning through API
+    quota or spamming incidents during a demo.
+    """
+    import time
+    last_key = f"_last_action_{action_key}"
+    now = time.time()
+    last = st.session_state.get(last_key, 0)
+    if now - last < cooldown_seconds:
+        return False
+    st.session_state[last_key] = now
+    return True
+
+
 @st.cache_resource
 def get_graph():
     return build_graph()
 
 
 # ============================================================
+# AUTHENTICATION GATE
+# ============================================================
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("""
+    <div style="text-align:center; max-width: 460px; margin: 3.5rem auto 1.5rem auto;">
+        <div style="font-size:2.2rem;">🛰️</div>
+        <div style="font-family:'Space Grotesk', sans-serif; font-size:2rem; font-weight:700; color:#E7ECF5; margin-top:6px;">IMPACT-X</div>
+        <div style="color:#7C879C; font-size:0.95rem; margin-top:4px;">Cyber Blast Radius Prediction &amp; Attack Path Analysis</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    _, center_col, _ = st.columns([1, 1.3, 1])
+    with center_col:
+        with st.container(border=True):
+            tab_signin, tab_signup = st.tabs(["Sign In", "Create Account"])
+
+            with tab_signin:
+                with st.form("signin_form"):
+                    si_username = st.text_input("Username")
+                    si_password = st.text_input("Password", type="password")
+                    si_submit = st.form_submit_button("Sign In", use_container_width=True)
+
+                st.markdown(
+                    '<div style="text-align:center; color:#7C879C; font-size:0.78rem; margin-top:10px;">'
+                    '🔒 Your password is hashed and encrypted — never stored in plain text.</div>',
+                    unsafe_allow_html=True,
+                )
+
+                if si_submit:
+                    if rate_limited("signin_attempt", cooldown_seconds=1.5):
+                        ok, msg = verify_user(si_username.strip(), si_password)
+                        if ok:
+                            st.session_state.authenticated = True
+                            st.session_state.current_user = si_username.strip()
+                            st.rerun()
+                        else:
+                            st.error(msg)
+                    else:
+                        st.warning("Please wait a moment before trying again.")
+
+            with tab_signup:
+                with st.form("signup_form"):
+                    su_username = st.text_input("Choose a username")
+                    su_email = st.text_input("Email")
+                    su_password = st.text_input("Choose a password", type="password")
+                    su_confirm = st.text_input("Confirm password", type="password")
+                    su_submit = st.form_submit_button("Create Account", use_container_width=True)
+
+                st.markdown(
+                    '<div style="text-align:center; color:#7C879C; font-size:0.78rem; margin-top:10px;">'
+                    '🔒 Your password is hashed and encrypted — never stored in plain text.</div>',
+                    unsafe_allow_html=True,
+                )
+
+                if su_submit:
+                    if rate_limited("signup_attempt", cooldown_seconds=1.5):
+                        error = validate_signup_input(su_username.strip(), su_email.strip(), su_password, su_confirm)
+                        if error:
+                            st.error(error)
+                        else:
+                            ok, msg = create_user(su_username.strip(), su_email.strip(), su_password)
+                            if ok:
+                                st.success(f"{msg} You can now sign in from the Sign In tab.")
+                            else:
+                                st.error(msg)
+                    else:
+                        st.warning("Please wait a moment before trying again.")
+
+    st.stop()
+
+
+# ============================================================
 # SIDEBAR
 # ============================================================
 with st.sidebar:
-    st.markdown('<div class="ix-eyebrow">NOVATECH CORPORATION</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="ix-eyebrow">SIGNED IN AS {st.session_state.get("current_user", "").upper()}</div>', unsafe_allow_html=True)
     st.markdown('<div class="ix-hero-title" style="font-size:1.6rem;">🛰️ IMPACT-X</div>', unsafe_allow_html=True)
     st.caption("Cyber Blast Radius Prediction & Attack Path Analysis")
     st.divider()
@@ -179,17 +293,30 @@ with st.sidebar:
     sim_type = st.selectbox("Incident type", ["Random"] + INCIDENT_TYPES)
 
     if st.button("🚨  Simulate Incident", use_container_width=True):
-        privilege_arg = None if sim_privilege == "Random" else sim_privilege
-        type_arg = None if sim_type == "Random" else sim_type
-        incident = simulate_incident(privilege_level=privilege_arg, incident_type=type_arg)
-        st.success(f"Incident #{incident['incident_id']} logged: {incident['entity_name']}")
+        if rate_limited("simulate_incident", cooldown_seconds=2):
+            privilege_arg = None if sim_privilege == "Random" else sim_privilege
+            type_arg = None if sim_type == "Random" else sim_type
+            incident = simulate_incident(privilege_level=privilege_arg, incident_type=type_arg)
+            st.success(f"Incident #{incident['incident_id']} logged: {incident['entity_name']}")
+        else:
+            st.warning("Please wait a moment before simulating another incident.")
 
     if st.button("🗑️  Reset All Incidents", use_container_width=True):
-        clear_incidents()
-        st.info("All incidents cleared.")
+        if rate_limited("reset_incidents", cooldown_seconds=3):
+            clear_incidents()
+            st.info("All incidents cleared.")
+        else:
+            st.warning("Please wait a moment before resetting again.")
 
     st.divider()
     st.caption("Simulated demo data — no real infrastructure is represented.")
+    st.caption("NovaTech Corporation")
+
+    st.divider()
+    if st.button("🚪  Log Out", use_container_width=True):
+        st.session_state.authenticated = False
+        st.session_state.pop("current_user", None)
+        st.rerun()
 
 # ============================================================
 # HEADER
@@ -487,15 +614,17 @@ st.markdown('<div class="ix-section-title">🧠 AI Security Analyst</div>', unsa
 ai_key = f"ai_explanation_{inc['id']}"
 
 if st.button("💬  Explain this incident", key=f"explain_btn_{inc['id']}"):
-    with st.spinner("Analyzing incident context..."):
-        st.session_state[ai_key] = explain_incident(inc, br, risk)
+    if rate_limited(f"explain_{inc['id']}", cooldown_seconds=5):
+        with st.spinner("Analyzing incident context..."):
+            st.session_state[ai_key] = explain_incident(inc, br, risk)
+    else:
+        st.warning("Please wait a few seconds before requesting another explanation.")
 
 if ai_key in st.session_state:
     result = st.session_state[ai_key]
-    source_label = "🤖 Groq-generated" if result["source"] == "ai" else "📋 Template-based (no API key set)"
     st.markdown(f"""
     <div class="ix-card" style="border-left: 3px solid {ACCENT};">
-        <div class="ix-kpi-label" style="margin-bottom:8px;">{source_label}</div>
+        <div class="ix-kpi-label" style="margin-bottom:8px;">🧠 ANALYSIS</div>
         <div style="line-height:1.6;">{result['explanation']}</div>
     </div>
     """, unsafe_allow_html=True)

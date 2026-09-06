@@ -1,0 +1,39 @@
+name: IMPACT-X CI
+
+# Runs on every push and pull request against main, so broken code is
+# caught before it reaches the deployed Streamlit Cloud app.
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Syntax check all Python files
+        run: |
+          python -m py_compile main.py
+          python -m py_compile backend/*.py
+          python -m py_compile dashboard/*.py
+
+      - name: Run full pipeline end-to-end (no dashboard launch)
+        run: python main.py --no-dashboard
+        # No API key is configured in CI, so the AI Analyst step will
+        # correctly use its deterministic template fallback — this still
+        # verifies the full data/graph/risk pipeline runs without errors.

@@ -102,5 +102,7 @@ def launch_dashboard():
 
 if __name__ == "__main__":
     run_full_demo()
-    launch_dashboard()
-    
+    if "--no-dashboard" not in sys.argv:
+        launch_dashboard()
+    else:
+        print("\n(--no-dashboard flag set: skipping browser launch — pipeline-only run, e.g. for CI.)")
