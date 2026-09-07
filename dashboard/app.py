@@ -1,12 +1,8 @@
 """
-IMPACT-X — Phase 8: Dashboard (Streamlit)
-Command-center style dashboard tying together Phases 2-7:
-- Trigger a simulated incident
-- Organizational risk posture gauge
-- Attack pattern analytics (risk distribution, attack surface vs impact,
-  department exposure, incident type frequency)
-- Prioritized, risk-scored incident queue
-- Blast Radius Explorer — drill into any incident's full attack path
+IMPACT-X — Dashboard (Streamlit)
+Full application flow: animated marketing landing page -> sign in / sign up
+-> command-center dashboard tying together the graph engine, incident
+simulation, blast radius calculation, risk scoring, and incident analysis.
 
 Run with: streamlit run dashboard/app.py
 (run from the project root, e.g. IMPACT-X/)
@@ -14,6 +10,7 @@ Run with: streamlit run dashboard/app.py
 
 import sys
 import os
+import time
 
 BACKEND_DIR = os.path.join(os.path.dirname(__file__), "..", "backend")
 sys.path.insert(0, BACKEND_DIR)
@@ -37,24 +34,19 @@ if not os.path.exists(_DB_PATH):
     from database import build_database
     build_database()
 
-# Ensure the login/sign-up accounts table exists. This is independent of
-# the simulated org data above and is never wiped by a database rebuild.
+# Ensure the login/sign-up accounts table exists. Independent of the
+# simulated org data above; never wiped by a database rebuild.
 init_auth_table()
 
-st.set_page_config(page_title="IMPACT-X", layout="wide", page_icon="🛰️", initial_sidebar_state="expanded")
+st.set_page_config(page_title="IMPACT-X", layout="wide", page_icon="🛡", initial_sidebar_state="expanded")
 
 # ============================================================
 # DESIGN SYSTEM
 # ============================================================
-# Palette:
-#   bg        #090D16   panel     #10151F   panel-border #1C2433
-#   text      #E7ECF5   muted     #7C879C   accent (cyan) #21D4E0
-#   critical  #FF4365   high      #FF9F43   medium #FFD166   low #35D48C
-# Type: Space Grotesk (display) / Inter (body) / JetBrains Mono (data)
-
 CRITICAL, HIGH, MEDIUM, LOW = "#FF4365", "#FF9F43", "#FFD166", "#35D48C"
 RISK_COLOR = {"CRITICAL": CRITICAL, "HIGH": HIGH, "MEDIUM": MEDIUM, "LOW": LOW}
 ACCENT = "#21D4E0"
+ACCENT2 = "#7C6FF0"
 
 st.markdown(f"""
 <style>
@@ -158,6 +150,92 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 }}
 
 /* ============================================================
+   LANDING PAGE
+   ============================================================ */
+@keyframes ixFadeUp {{
+    from {{ opacity: 0; transform: translateY(18px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
+}}
+@keyframes ixFloat {{
+    0%, 100% {{ transform: translateY(0px); }}
+    50%      {{ transform: translateY(-14px); }}
+}}
+@keyframes ixPulse {{
+    0%, 100% {{ opacity: 0.55; }}
+    50%      {{ opacity: 1; }}
+}}
+@keyframes ixGradientShift {{
+    0%   {{ background-position: 0% 50%; }}
+    50%  {{ background-position: 100% 50%; }}
+    100% {{ background-position: 0% 50%; }}
+}}
+
+.ix-fade-1 {{ animation: ixFadeUp 0.7s ease-out both; }}
+.ix-fade-2 {{ animation: ixFadeUp 0.7s ease-out 0.12s both; }}
+.ix-fade-3 {{ animation: ixFadeUp 0.7s ease-out 0.24s both; }}
+.ix-fade-4 {{ animation: ixFadeUp 0.7s ease-out 0.36s both; }}
+
+.ix-float {{ animation: ixFloat 5s ease-in-out infinite; }}
+.ix-float-slow {{ animation: ixFloat 7s ease-in-out infinite; }}
+.ix-pulse-dot {{ animation: ixPulse 2.4s ease-in-out infinite; }}
+
+.ix-gradient-text {{
+    background: linear-gradient(90deg, {ACCENT}, {ACCENT2}, {ACCENT});
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: ixGradientShift 6s ease-in-out infinite;
+}}
+
+.ix-nav {{
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0 28px 0;
+}}
+.ix-nav-links {{ display:flex; gap: 28px; color:#7C879C; font-size:0.92rem; }}
+
+.ix-hero-wrap {{ position: relative; padding: 3.2rem 0 2rem 0; overflow: hidden; }}
+
+.ix-feature-card {{
+    background: #10151F;
+    border: 1px solid #1C2433;
+    border-radius: 12px;
+    padding: 22px 20px;
+    transition: transform 0.25s ease, border-color 0.25s ease;
+    height: 100%;
+}}
+.ix-feature-card:hover {{
+    transform: translateY(-4px);
+    border-color: {ACCENT}55;
+}}
+
+.ix-stat-num {{
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 2.1rem;
+    font-weight: 700;
+    color: {ACCENT};
+}}
+.ix-stat-label {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: #7C879C;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}}
+
+.ix-step-num {{
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    color: {ACCENT};
+    font-size: 0.85rem;
+    border: 1px solid {ACCENT}55;
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    display:flex; align-items:center; justify-content:center;
+    margin-bottom: 10px;
+}}
+
+/* ============================================================
    MOBILE RESPONSIVENESS
    Everything below this line ONLY applies when the browser
    viewport is 768px wide or less (phones/small tablets).
@@ -176,6 +254,36 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 """, unsafe_allow_html=True)
 
 
+# ============================================================
+# ICONS — hand-built inline SVGs (no emoji, no external icon fonts)
+# ============================================================
+def icon(name, size=18, color="currentColor", stroke_width=1.8):
+    paths = {
+        "shield": '<path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"/>',
+        "network": '<circle cx="6" cy="6" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="12" cy="18" r="2.2"/>'
+                    '<path d="M7.8 7.4L11 16.2M16.2 7.4L13 16.2M8.2 6H15.8"/>',
+        "target": '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.6" fill="currentColor"/>',
+        "chart": '<path d="M4 19V5M4 19h16M8 15l3-4 3 2 4-6"/>',
+        "alert": '<path d="M12 4l9 15H3l9-15z"/><path d="M12 10v4"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/>',
+        "layers": '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>',
+        "document": '<path d="M6 3h9l3 3v15H6z"/><path d="M15 3v3h3"/><path d="M9 12h6M9 16h6"/>',
+        "check": '<path d="M4 12l5 5L20 6"/>',
+        "arrow-right": '<path d="M4 12h15M13 6l6 6-6 6"/>',
+        "lock": '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+        "mail": '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+        "trash": '<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/>',
+        "logout": '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/>',
+        "satellite": '<path d="M13 3l3 3-5 5-3-3 5-5z"/><path d="M8 10l-4 4 3 3 4-4"/><path d="M6 18l-2 2"/><path d="M16 7l2-2"/>',
+        "rocket": '<path d="M12 2c3 2 5 6 4 11l-2 2H10l-2-2c-1-5 1-9 4-11z"/><circle cx="12" cy="9" r="1.5"/><path d="M9 15l-2 5 3-1M15 15l2 5-3-1"/>',
+        "cpu": '<rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 4v3M15 4v3M9 17v3M15 17v3M4 9h3M4 15h3M17 9h3M17 15h3"/>',
+        "eye": '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+    }
+    p = paths.get(name, "")
+    return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
+            f'stroke="{color}" stroke-width="{stroke_width}" stroke-linecap="round" '
+            f'stroke-linejoin="round" style="vertical-align:middle;">{p}</svg>')
+
+
 def risk_badge(status):
     color = RISK_COLOR.get(status, "#7C879C")
     return f'<span class="ix-badge" style="background:{color}22; color:{color}; border:1px solid {color}55;">{status}</span>'
@@ -186,10 +294,7 @@ def rate_limited(action_key, cooldown_seconds):
     Simple per-session cooldown check using Streamlit's session_state.
     Returns True if the action is allowed right now (and records the
     timestamp), or False if it's still within the cooldown window.
-    Protects against accidental rapid-fire clicks burning through API
-    quota or spamming incidents during a demo.
     """
-    import time
     last_key = f"_last_action_{action_key}"
     now = time.time()
     last = st.session_state.get(last_key, 0)
@@ -204,18 +309,163 @@ def get_graph():
     return build_graph()
 
 
+def goto(view_name):
+    st.session_state.view = view_name
+
+
 # ============================================================
-# AUTHENTICATION GATE
+# SESSION STATE DEFAULTS
 # ============================================================
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
+if "view" not in st.session_state:
+    st.session_state.view = "landing"
 
-if not st.session_state.authenticated:
-    st.markdown("""
-    <div style="text-align:center; max-width: 460px; margin: 3.5rem auto 1.5rem auto;">
-        <div style="font-size:2.2rem;">🛰️</div>
+
+# ============================================================
+# LANDING PAGE
+# ============================================================
+def render_landing():
+    nav_l, nav_r = st.columns([4, 1])
+    with nav_l:
+        st.markdown(f"""
+        <div style="display:flex; align-items:center; gap:10px; padding-top:6px;">
+            <span style="color:{ACCENT};">{icon('shield', 26)}</span>
+            <span style="font-family:'Space Grotesk',sans-serif; font-size:1.25rem; font-weight:700;">IMPACT-X</span>
+        </div>
+        """, unsafe_allow_html=True)
+    with nav_r:
+        if st.button("Sign In", key="nav_signin", use_container_width=True):
+            goto("auth")
+            st.rerun()
+
+    st.markdown('<div class="ix-hero-wrap">', unsafe_allow_html=True)
+
+    # Decorative floating network graphic (purely visual, CSS-animated)
+    st.markdown(f"""
+    <div style="position:relative; height:0;">
+        <div style="position:absolute; right:2%; top:-40px; opacity:0.5;" class="ix-float">
+            <span style="color:{ACCENT};">{icon('network', 70)}</span>
+        </div>
+        <div style="position:absolute; right:16%; top:70px; opacity:0.35;" class="ix-float-slow">
+            <span style="color:{ACCENT2};">{icon('target', 44)}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown(f"""
+    <div class="ix-fade-1" style="max-width: 760px;">
+        <div class="ix-eyebrow">IDENTITY-CENTRIC THREAT INTELLIGENCE</div>
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:3.1rem; font-weight:700; line-height:1.08; margin: 10px 0 18px 0;">
+            See every path an attacker<br><span class="ix-gradient-text">could actually take.</span>
+        </div>
+        <div style="color:#7C879C; font-size:1.05rem; max-width:600px; line-height:1.6;">
+            IMPACT-X models your organization's identities and systems as a live graph, so a single
+            compromised account instantly reveals its full blast radius — not just an isolated alert.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.write("")
+    cta1, cta2, _ = st.columns([1.1, 1.3, 3])
+    with cta1:
+        if st.button("Get Started", key="hero_cta", type="primary", use_container_width=True,
+                      icon=":material/arrow_forward:"):
+            goto("auth")
+            st.rerun()
+    with cta2:
+        st.link_button("View Source on GitHub", "https://github.com/cybr9628/IMPACT-X",
+                        use_container_width=True, icon=":material/code:")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.write("")
+
+    # Stats row
+    stat_cols = st.columns(4)
+    stats = [("70", "Identities Modeled"), ("95", "Assets Tracked"),
+             ("215", "Relationships Mapped"), ("6", "Weighted Risk Factors")]
+    for col, (num, label) in zip(stat_cols, stats):
+        with col:
+            st.markdown(f"""
+            <div class="ix-card ix-fade-2" style="text-align:center;">
+                <div class="ix-stat-num">{num}</div>
+                <div class="ix-stat-label">{label}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.write("")
+    st.write("")
+
+    # Features
+    st.markdown('<div class="ix-eyebrow">CAPABILITIES</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ix-hero-title" style="font-size:1.8rem;">Built for real identity risk</div>', unsafe_allow_html=True)
+    st.write("")
+
+    features = [
+        ("network", "Graph-Native Modeling", "Every identity, application, database, API, and service is a node in one connected, traversable graph."),
+        ("target", "Instant Blast Radius", "Trace everything a compromised identity can reach, at any depth, in real time — not a static rule list."),
+        ("chart", "Transparent Risk Scoring", "Six auditable, weighted factors combine into one 0-100 score, so priority reflects real impact."),
+        ("document", "Plain-Language Summaries", "Every incident gets a concise, data-grounded write-up an analyst can act on immediately."),
+    ]
+    fcols = st.columns(4)
+    for col, (ic, title, desc) in zip(fcols, features):
+        with col:
+            st.markdown(f"""
+            <div class="ix-feature-card">
+                <div style="color:{ACCENT}; margin-bottom:12px;">{icon(ic, 26)}</div>
+                <div style="font-weight:600; margin-bottom:8px;">{title}</div>
+                <div style="color:#7C879C; font-size:0.88rem; line-height:1.5;">{desc}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.write("")
+    st.write("")
+
+    # How it works
+    st.markdown('<div class="ix-eyebrow">WORKFLOW</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ix-hero-title" style="font-size:1.8rem;">From alert to action</div>', unsafe_allow_html=True)
+    st.write("")
+
+    steps = [
+        ("1", "An incident is detected against a real identity in the graph."),
+        ("2", "The engine traces every asset that identity can reach."),
+        ("3", "A weighted score ranks the incident by real impact."),
+        ("4", "A concise summary and recommended action are generated."),
+    ]
+    scols = st.columns(4)
+    for col, (n, desc) in zip(scols, steps):
+        with col:
+            st.markdown(f"""
+            <div class="ix-card">
+                <div class="ix-step-num">{n}</div>
+                <div style="color:#E7ECF5; font-size:0.9rem; line-height:1.5;">{desc}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.write("")
+    st.write("")
+    st.divider()
+    st.markdown(f"""
+    <div style="display:flex; justify-content:space-between; align-items:center; color:#7C879C; font-size:0.82rem; padding: 6px 0 24px 0;">
+        <div>IMPACT-X — Identity-Centric Threat Intelligence Platform</div>
+        <div>Simulated demo environment · NovaTech Corporation</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ============================================================
+# AUTH PAGE (Sign In / Create Account)
+# ============================================================
+def render_auth():
+    if st.button("← Back to home", key="back_home"):
+        goto("landing")
+        st.rerun()
+
+    st.markdown(f"""
+    <div style="text-align:center; max-width: 460px; margin: 1.5rem auto 1.5rem auto;">
+        <div style="color:{ACCENT};">{icon('shield', 34)}</div>
         <div style="font-family:'Space Grotesk', sans-serif; font-size:2rem; font-weight:700; color:#E7ECF5; margin-top:6px;">IMPACT-X</div>
-        <div style="color:#7C879C; font-size:0.95rem; margin-top:4px;">Cyber Blast Radius Prediction &amp; Attack Path Analysis</div>
+        <div style="color:#7C879C; font-size:0.95rem; margin-top:4px;">Identity-Centric Threat Intelligence Platform</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -231,8 +481,8 @@ if not st.session_state.authenticated:
                     si_submit = st.form_submit_button("Sign In", use_container_width=True)
 
                 st.markdown(
-                    '<div style="text-align:center; color:#7C879C; font-size:0.78rem; margin-top:10px;">'
-                    '🔒 Your password is hashed and encrypted — never stored in plain text.</div>',
+                    f'<div style="text-align:center; color:#7C879C; font-size:0.78rem; margin-top:10px;">'
+                    f'{icon("lock", 13)} Your password is hashed and encrypted — never stored in plain text.</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -242,6 +492,7 @@ if not st.session_state.authenticated:
                         if ok:
                             st.session_state.authenticated = True
                             st.session_state.current_user = si_username.strip()
+                            goto("dashboard")
                             st.rerun()
                         else:
                             st.error(msg)
@@ -257,8 +508,8 @@ if not st.session_state.authenticated:
                     su_submit = st.form_submit_button("Create Account", use_container_width=True)
 
                 st.markdown(
-                    '<div style="text-align:center; color:#7C879C; font-size:0.78rem; margin-top:10px;">'
-                    '🔒 Your password is hashed and encrypted — never stored in plain text.</div>',
+                    f'<div style="text-align:center; color:#7C879C; font-size:0.78rem; margin-top:10px;">'
+                    f'{icon("lock", 13)} Your password is hashed and encrypted — never stored in plain text.</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -276,23 +527,40 @@ if not st.session_state.authenticated:
                     else:
                         st.warning("Please wait a moment before trying again.")
 
+
+# ============================================================
+# ROUTER (unauthenticated views)
+# ============================================================
+if not st.session_state.authenticated:
+    if st.session_state.view == "auth":
+        render_auth()
+    else:
+        render_landing()
     st.stop()
 
 
 # ============================================================
-# SIDEBAR
+# SIDEBAR (authenticated)
 # ============================================================
 with st.sidebar:
-    st.markdown(f'<div class="ix-eyebrow">SIGNED IN AS {st.session_state.get("current_user", "").upper()}</div>', unsafe_allow_html=True)
-    st.markdown('<div class="ix-hero-title" style="font-size:1.6rem;">🛰️ IMPACT-X</div>', unsafe_allow_html=True)
-    st.caption("Cyber Blast Radius Prediction & Attack Path Analysis")
+    st.markdown(
+        f'<div class="ix-eyebrow">SIGNED IN AS {st.session_state.get("current_user", "").upper()}</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(f"""
+    <div style="display:flex; align-items:center; gap:8px; margin: 2px 0 4px 0;">
+        <span style="color:{ACCENT};">{icon('shield', 22)}</span>
+        <span style="font-family:'Space Grotesk',sans-serif; font-size:1.25rem; font-weight:700;">IMPACT-X</span>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("Identity-Centric Threat Intelligence Platform")
     st.divider()
 
     st.markdown("**Simulate an Incident**")
     sim_privilege = st.selectbox("Force identity privilege", ["Random", "standard", "elevated", "admin"])
     sim_type = st.selectbox("Incident type", ["Random"] + INCIDENT_TYPES)
 
-    if st.button("🚨  Simulate Incident", use_container_width=True):
+    if st.button("Simulate Incident", use_container_width=True, icon=":material/bolt:"):
         if rate_limited("simulate_incident", cooldown_seconds=2):
             privilege_arg = None if sim_privilege == "Random" else sim_privilege
             type_arg = None if sim_type == "Random" else sim_type
@@ -301,7 +569,7 @@ with st.sidebar:
         else:
             st.warning("Please wait a moment before simulating another incident.")
 
-    if st.button("🗑️  Reset All Incidents", use_container_width=True):
+    if st.button("Reset All Incidents", use_container_width=True, icon=":material/restart_alt:"):
         if rate_limited("reset_incidents", cooldown_seconds=3):
             clear_incidents()
             st.info("All incidents cleared.")
@@ -313,16 +581,28 @@ with st.sidebar:
     st.caption("NovaTech Corporation")
 
     st.divider()
-    if st.button("🚪  Log Out", use_container_width=True):
+    if st.button("Log Out", use_container_width=True, icon=":material/logout:"):
         st.session_state.authenticated = False
         st.session_state.pop("current_user", None)
+        goto("landing")
         st.rerun()
 
 # ============================================================
 # HEADER
 # ============================================================
 st.markdown('<div class="ix-eyebrow">THREAT INTELLIGENCE COMMAND CENTER</div>', unsafe_allow_html=True)
-st.markdown('<div class="ix-hero-title">IMPACT-X Dashboard</div>', unsafe_allow_html=True)
+
+head_l, head_r = st.columns([3, 1.4])
+with head_l:
+    st.markdown('<div class="ix-hero-title">IMPACT-X Dashboard</div>', unsafe_allow_html=True)
+with head_r:
+    st.markdown(f"""
+    <div style="text-align:right; padding-top:14px;">
+        <div class="ix-mono" style="font-size:0.8rem; color:#7C879C;">{st.session_state.get('current_user','')}</div>
+        <div class="ix-mono" style="font-size:0.75rem; color:{ACCENT};">NovaTech Corporation</div>
+    </div>
+    """, unsafe_allow_html=True)
+
 st.markdown(
     '<div class="ix-hero-sub">Something happened &rarr; here\'s what it could reach &rarr; '
     'here\'s the blast radius &rarr; here\'s what matters most.</div>',
@@ -332,9 +612,9 @@ st.markdown(
 incidents = get_all_incidents()
 
 if not incidents:
-    st.markdown("""
+    st.markdown(f"""
     <div class="ix-card" style="text-align:center; padding: 48px 20px;">
-        <div style="font-size:2rem;">🛰️</div>
+        <div style="color:{ACCENT}; margin-bottom:10px;">{icon('satellite', 34)}</div>
         <div class="ix-section-title" style="justify-content:center;">No active incidents</div>
         <div style="color:#7C879C;">Use <b>Simulate Incident</b> in the sidebar to trigger the first alert
         and populate the threat picture.</div>
@@ -426,7 +706,7 @@ st.write("")
 # ============================================================
 # ATTACK PATTERN ANALYTICS
 # ============================================================
-st.markdown('<div class="ix-section-title">📡 Attack Pattern Analytics</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="ix-section-title">{icon("chart", 20)} Attack Pattern Analytics</div>', unsafe_allow_html=True)
 
 chart_rows = []
 for r in ranked:
@@ -502,7 +782,7 @@ with chart_col4:
     itype = cdf["incident_type"].value_counts()
     fig4 = go.Figure(go.Bar(
         x=itype.values, y=itype.index, orientation="h",
-        marker_color="#7C6FF0",
+        marker_color=ACCENT2,
     ))
     fig4.update_layout(
         height=280, margin=dict(l=10, r=10, t=10, b=10),
@@ -519,7 +799,7 @@ st.write("")
 # ============================================================
 # PRIORITIZED INCIDENT QUEUE
 # ============================================================
-st.markdown('<div class="ix-section-title">📋 Prioritized Incident Queue</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="ix-section-title">{icon("layers", 20)} Prioritized Incident Queue</div>', unsafe_allow_html=True)
 
 table_rows = []
 for r in ranked:
@@ -543,7 +823,7 @@ st.write("")
 # ============================================================
 # BLAST RADIUS EXPLORER
 # ============================================================
-st.markdown('<div class="ix-section-title">🔥 Blast Radius Explorer</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="ix-section-title">{icon("target", 20)} Blast Radius Explorer</div>', unsafe_allow_html=True)
 
 incident_options = {f"#{r['incident']['id']} — {r['incident']['user_name']} ({r['incident']['incident_type']})": r
                      for r in ranked}
@@ -607,26 +887,26 @@ with colB:
 st.write("")
 
 # ============================================================
-# AI SECURITY ANALYST
+# INCIDENT ANALYSIS
 # ============================================================
-st.markdown('<div class="ix-section-title">🧠 AI Security Analyst</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="ix-section-title">{icon("document", 20)} Incident Analysis</div>', unsafe_allow_html=True)
 
 ai_key = f"ai_explanation_{inc['id']}"
 
-if st.button("💬  Explain this incident", key=f"explain_btn_{inc['id']}"):
+if st.button("Generate Summary", key=f"explain_btn_{inc['id']}", icon=":material/summarize:"):
     if rate_limited(f"explain_{inc['id']}", cooldown_seconds=5):
         with st.spinner("Analyzing incident context..."):
             st.session_state[ai_key] = explain_incident(inc, br, risk)
     else:
-        st.warning("Please wait a few seconds before requesting another explanation.")
+        st.warning("Please wait a few seconds before requesting another summary.")
 
 if ai_key in st.session_state:
     result = st.session_state[ai_key]
     st.markdown(f"""
     <div class="ix-card" style="border-left: 3px solid {ACCENT};">
-        <div class="ix-kpi-label" style="margin-bottom:8px;">🧠 ANALYSIS</div>
+        <div class="ix-kpi-label" style="margin-bottom:8px;">SUMMARY</div>
         <div style="line-height:1.6;">{result['explanation']}</div>
     </div>
     """, unsafe_allow_html=True)
 else:
-    st.caption("Click above to generate a plain-language explanation of this incident's impact.")
+    st.caption("Click above to generate a concise summary of this incident's impact.")
