@@ -11,6 +11,7 @@ Run with: streamlit run dashboard/app.py
 import sys
 import os
 import time
+from html import escape
 
 BACKEND_DIR = os.path.join(os.path.dirname(__file__), "..", "backend")
 sys.path.insert(0, BACKEND_DIR)
@@ -25,6 +26,11 @@ from risk_engine import prioritize_all_open_incidents, score_incident
 from graph_engine import build_graph
 from ai_analyst import explain_incident
 from auth import init_auth_table, create_user, verify_user, validate_signup_input
+
+try:
+    from database import get_data_version
+except ImportError:
+    get_data_version = None
 
 # Auto-build the database on first run (e.g. a fresh cloud deployment where
 # data/impact_x.db doesn't exist yet). Safe to call every time locally too —
@@ -304,9 +310,31 @@ def rate_limited(action_key, cooldown_seconds):
     return True
 
 
-@st.cache_resource
-def get_graph():
+def current_data_version():
+    """Return a backend revision so cached reads cannot outlive a reset."""
+    if get_data_version is not None:
+        try:
+            return str(get_data_version())
+        except Exception:
+            pass
+    # Compatibility fallback for older backend revisions.
+    try:
+        return repr([(row.get("id"), row.get("updated_at"), row.get("revision"))
+                     for row in get_all_incidents()])
+    except Exception:
+        return "unknown"
+
+
+@st.cache_resource(show_spinner=False)
+def get_graph(data_version):
+    """Cache topology only for the current backend data revision."""
     return build_graph()
+
+
+@st.cache_data(show_spinner=False)
+def get_ranked_incidents(data_version):
+    """Avoid rescoring and rewriting every incident on normal reruns."""
+    return prioritize_all_open_incidents()
 
 
 def goto(view_name):
@@ -572,6 +600,8 @@ with st.sidebar:
     if st.button("Reset All Incidents", use_container_width=True, icon=":material/restart_alt:"):
         if rate_limited("reset_incidents", cooldown_seconds=3):
             clear_incidents()
+            get_graph.clear()
+            get_ranked_incidents.clear()
             st.info("All incidents cleared.")
         else:
             st.warning("Please wait a moment before resetting again.")
@@ -622,8 +652,9 @@ if not incidents:
     """, unsafe_allow_html=True)
     st.stop()
 
-graph = get_graph()
-ranked = prioritize_all_open_incidents()
+data_version = current_data_version()
+graph = get_graph(data_version)
+ranked = get_ranked_incidents(data_version)
 open_ids = {r["incident"]["id"] for r in ranked}
 for inc in incidents:
     if inc["id"] not in open_ids:
@@ -905,7 +936,7 @@ if ai_key in st.session_state:
     st.markdown(f"""
     <div class="ix-card" style="border-left: 3px solid {ACCENT};">
         <div class="ix-kpi-label" style="margin-bottom:8px;">SUMMARY</div>
-        <div style="line-height:1.6;">{result['explanation']}</div>
+        <div style="line-height:1.6;">{escape(str(result.get('explanation', '')))}</div>
     </div>
     """, unsafe_allow_html=True)
 else:

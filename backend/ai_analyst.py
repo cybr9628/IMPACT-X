@@ -1,14 +1,10 @@
 """
 IMPACT-X — Phase 9: AI Security Analyst
 Takes an incident + its blast radius + risk score (Phases 5-7) and produces
-a plain-language explanation of why it matters, grounded in the actual
-graph data — not a generic canned response.
+a plain-language executive brief grounded in actual graph data.
 
-Uses Groq (free tier, no billing required, very low latency) when a
-GROQ_API_KEY environment variable (or .env entry) is set. If not set, or
-if the API call fails for any reason, falls back to a deterministic
-template built from the same data — so the demo never breaks without
-internet/API access.
+Uses Groq (free tier, no billing required, low latency) when GROQ_API_KEY is set.
+Falls back seamlessly to a matching deterministic template if offline or if API calls fail.
 """
 
 import os
@@ -16,25 +12,16 @@ import time
 import concurrent.futures
 from dotenv import load_dotenv
 
-# Loads variables from a .env file in the project root into the environment.
-# We build an explicit path (rather than relying on load_dotenv()'s default
-# search from the current working directory) so this works identically no
-# matter how or from where the script is launched — terminal, VS Code's Run
-# button, main.py, or Streamlit Cloud (which uses its own Secrets manager
-# instead of a .env file, but this line is harmless if no .env exists).
+# Explicit path to .env file at project root
 _ENV_PATH = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path=_ENV_PATH)
 
-# llama-3.3-70b-versatile is a strong, free-tier Groq model with fast
-# responses — good balance of quality and speed for live-demo explanations.
 MODEL = "llama-3.3-70b-versatile"
-
 _client = None
 
 
 def _get_client():
-    """Lazily creates the Groq client only if a key is present,
-    so importing this module never fails when the SDK/key is missing."""
+    """Lazily creates the Groq client only if an API key is present."""
     global _client
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
@@ -49,111 +36,96 @@ def _get_client():
 
 
 def _build_prompt(incident, blast_radius, risk):
+    """Builds a structured prompt forcing exact executive briefing formatting."""
     services = ", ".join(
-        f"{s['label']} ({s['criticality']})" for s in blast_radius["business_services_affected"]
-    ) or "none"
+        f"{s['label']} ({s['criticality']})" for s in blast_radius.get("business_services_affected", [])
+    ) or "None monitored"
 
     top_path = None
-    if blast_radius["business_services_affected"]:
-        top_path = blast_radius["business_services_affected"][0]["attack_path"]
-    path_str = " -> ".join(top_path) if top_path else "no path to a business service found"
+    if blast_radius.get("business_services_affected"):
+        top_path = blast_radius["business_services_affected"][0].get("attack_path")
+    path_str = " → ".join(top_path) if top_path else "No direct attack path to critical services"
 
-    return f"""You are a security analyst assistant embedded in IMPACT-X, a cyber blast-radius
-analysis platform. Explain the following incident to a SOC analyst in 3-4 concise sentences.
-Be direct and specific, referencing the actual numbers given. Do not invent details not provided.
+    return f"""You are a senior SOC lead briefing executive management on a security incident.
+Provide a clear, structured assessment in exactly 3 sections using markdown bold titles.
 
-INCIDENT
-- Type: {incident['incident_type']}
-- Affected identity: {incident['user_name']} ({incident['role']}, {incident['department']})
-- Privilege level: {incident['privilege_level']}
+INCIDENT METRICS:
+- Identity: {incident['user_name']} ({incident['role']}, {incident['department']}) | Privilege: {incident['privilege_level']}
+- Incident Event: {incident['incident_type']}
+- Risk Rating: {risk['score']}/100 ({risk['status']})
+- Reachable Assets: {blast_radius['reachable_count']} total ({blast_radius['critical_count']} critical)
+- Critical Services Exposed: {services}
+- Example Attack Path: {path_str}
 
-BLAST RADIUS
-- Directly accessible assets: {blast_radius['direct_count']}
-- Total reachable assets (all hops): {blast_radius['reachable_count']}
-- Critical (high-sensitivity) assets reached: {blast_radius['critical_count']}
-- Business services affected: {services}
-- Example attack path: {path_str}
-
-RISK SCORE
-- Score: {risk['score']}/100
-- Status: {risk['status']}
-
-Explain why this incident is (or isn't) serious, referencing the specific reachable systems and
-the attack path. End with one concrete recommended action for the analyst."""
+Format your output EXACTLY as:
+**Primary Threat:** [1 concise sentence on what occurred and who triggered it]
+**Business Impact:** [1-2 sentences explaining reachable assets, critical service exposure, and lateral movement risk]
+**Immediate Action:** [1 direct, actionable containment recommendation]"""
 
 
 def _fallback_explanation(incident, blast_radius, risk):
-    """Deterministic template used when no API key is available."""
-    services = blast_radius["business_services_affected"]
+    """Deterministic structured template matching the AI format when API key is unavailable."""
+    services = blast_radius.get("business_services_affected", [])
     service_names = ", ".join(s["label"] for s in services) if services else "no monitored business services"
 
-    lines = []
-    lines.append(
-        f"{incident['user_name']} ({incident['role']}, {incident['department']}, "
-        f"{incident['privilege_level']} privilege) triggered a '{incident['incident_type']}' alert."
+    top_path = services[0].get("attack_path") if services and services[0].get("attack_path") else []
+    path_str = " → ".join(top_path) if top_path else "no direct path to critical business services"
+
+    # Section 1: Primary Threat
+    primary_threat = (
+        f"**Primary Threat:** {incident['user_name']} ({incident['role']}, {incident['department']}, "
+        f"{incident['privilege_level']} privilege) triggered a '{incident['incident_type']}' security alert."
     )
 
+    # Section 2: Business Impact
     if risk["status"] in ("CRITICAL", "HIGH"):
-        lines.append(
-            f"This identity can reach {blast_radius['reachable_count']} systems in total, including "
-            f"{blast_radius['critical_count']} high-sensitivity asset(s), putting {service_names} at risk."
+        impact = (
+            f"**Business Impact:** Identity can reach {blast_radius['reachable_count']} total assets "
+            f"({blast_radius['critical_count']} critical), placing {service_names} at risk via path: {path_str}."
         )
     else:
-        lines.append(
-            f"This identity's reach is limited — {blast_radius['reachable_count']} systems total, "
-            f"with {blast_radius['critical_count']} high-sensitivity asset(s) exposed."
+        impact = (
+            f"**Business Impact:** Threat reach is contained to {blast_radius['reachable_count']} total assets "
+            f"({blast_radius['critical_count']} critical) with low risk to enterprise operations."
         )
 
-    if services and services[0]["attack_path"]:
-        lines.append("Example attack path: " + " → ".join(services[0]["attack_path"]) + ".")
-
+    # Section 3: Immediate Action
     if risk["status"] == "CRITICAL":
-        lines.append(
-            f"Risk score {risk['score']}/100 (CRITICAL). Recommended action: disable this identity "
-            f"immediately, force credential rotation, and audit recent activity on all reachable systems."
+        action = (
+            f"**Immediate Action:** Disable user '{incident['user_name']}' immediately, revoke active sessions, "
+            f"and perform forensic audits on all reachable critical systems."
         )
     elif risk["status"] == "HIGH":
-        lines.append(
-            f"Risk score {risk['score']}/100 (HIGH). Recommended action: investigate this identity's "
-            f"recent activity now and consider temporary access suspension pending review."
+        action = (
+            f"**Immediate Action:** Suspend access privileges for '{incident['user_name']}' pending SOC triage "
+            f"and isolate vulnerable target nodes."
         )
     elif risk["status"] == "MEDIUM":
-        lines.append(
-            f"Risk score {risk['score']}/100 (MEDIUM). Recommended action: review the alert during "
-            f"normal triage and confirm the activity was legitimate."
+        action = (
+            f"**Immediate Action:** Review recent activity logs during standard triage to verify action authorization."
         )
     else:
-        lines.append(
-            f"Risk score {risk['score']}/100 (LOW). Recommended action: log for audit purposes; "
-            f"no immediate containment action required."
+        action = (
+            f"**Immediate Action:** Log incident for operational record; no account suspension required."
         )
 
-    return " ".join(lines)
+    return f"{primary_threat}\n\n{impact}\n\n{action}"
 
 
 def _call_groq(client, prompt):
-    """Runs the actual API call — used inside a timeout wrapper below."""
+    """Runs the API call with strict formatting constraint parameters."""
     response = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
         max_tokens=300,
-        temperature=0.4,
+        temperature=0.3,
     )
     return response.choices[0].message.content.strip()
 
 
 def explain_incident(incident, blast_radius, risk, max_retries=2, timeout_seconds=20):
     """
-    Returns a dict: {"explanation": str, "source": "ai" | "template"}
-
-    - incident: dict from INCIDENTS/USERS join (as produced by risk_engine.score_incident)
-    - blast_radius: dict from blast_radius.calculate_blast_radius()
-    - risk: dict from risk_engine.calculate_risk_score()
-    - max_retries: number of extra attempts if Groq is temporarily unavailable
-      before falling back to the template.
-    - timeout_seconds: hard ceiling per attempt. If the network stalls (no
-      response at all), this ensures we never hang indefinitely and always
-      fall back to the template within this time.
+    Returns a dict: {"explanation": str, "source": "ai" | "template", "error": optional_str}
     """
     client = _get_client()
 
@@ -179,7 +151,7 @@ def explain_incident(incident, blast_radius, risk, max_retries=2, timeout_second
                 continue
             break
 
-    # All attempts failed — never let an API hiccup (quota, network, timeout) break the demo.
+    # Fallback execution if API attempts fail
     fallback = _fallback_explanation(incident, blast_radius, risk)
     return {"explanation": fallback, "source": "template", "error": last_error}
 
@@ -197,9 +169,9 @@ if __name__ == "__main__":
     graph = build_graph()
     result = score_incident(incidents[0]["id"], graph=graph)
 
-    print("=== AI Analyst (source will show 'template' unless GROQ_API_KEY is set) ===")
+    print("=== Automated Incident Briefing Output ===")
     output = explain_incident(result["incident"], result["blast_radius"], result["risk"])
-    print(f"[source: {output['source']}]")
+    print(f"[Source Mode: {output['source']}]")
     if "error" in output:
-        print(f"[ERROR DETAIL: {output['error']}]")
-    print(output["explanation"])
+        print(f"[Error Details: {output['error']}]")
+    print("\n" + output["explanation"])
