@@ -6,6 +6,17 @@ simulation, blast radius calculation, risk scoring, and incident analysis.
 
 Run with: streamlit run dashboard/app.py
 (run from the project root, e.g. IMPACT-X/)
+
+UPDATED in this pass:
+  - Mobile CSS: card rows now wrap 2-up on narrow screens instead of
+    stacking one-per-row (full native fix still needs a non-Streamlit
+    frontend — see project report).
+  - Removed the public "View Source on GitHub" button from the landing page.
+  - Added "Why IMPACT-X" and "Limitations & Roadmap" sections to the
+    landing page.
+  - Added a Feedback page (sidebar nav) that collects ratings/comments
+    and shows a compiled summary report.
+  - init_feedback_table() added alongside init_auth_table().
 """
 
 import sys
@@ -26,23 +37,20 @@ from risk_engine import prioritize_all_open_incidents, score_incident
 from graph_engine import build_graph
 from ai_analyst import explain_incident
 from auth import init_auth_table, create_user, verify_user, validate_signup_input
+from feedback import init_feedback_table, submit_feedback, get_feedback_summary, CATEGORIES
 
 try:
     from database import get_data_version
 except ImportError:
     get_data_version = None
 
-# Auto-build the database on first run (e.g. a fresh cloud deployment where
-# data/impact_x.db doesn't exist yet). Safe to call every time locally too —
-# it's a fast, idempotent no-op check.
 _DB_PATH = os.path.join(BACKEND_DIR, "..", "data", "impact_x.db")
 if not os.path.exists(_DB_PATH):
     from database import build_database
     build_database()
 
-# Ensure the login/sign-up accounts table exists. Independent of the
-# simulated org data above; never wiped by a database rebuild.
 init_auth_table()
+init_feedback_table()
 
 st.set_page_config(page_title="IMPACT-X", layout="wide", page_icon="🛡", initial_sidebar_state="expanded")
 
@@ -60,6 +68,7 @@ st.markdown(f"""
 
 #MainMenu {{visibility: hidden;}}
 footer {{visibility: hidden;}}
+header [data-testid="stToolbarActions"] {{ display: none; }}
 
 html, body, [class*="css"] {{
     font-family: 'Inter', sans-serif;
@@ -175,6 +184,14 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
     50%  {{ background-position: 100% 50%; }}
     100% {{ background-position: 0% 50%; }}
 }}
+@keyframes ixDrawLine {{
+    from {{ stroke-dashoffset: 400; }}
+    to   {{ stroke-dashoffset: 0; }}
+}}
+@keyframes ixNodePulse {{
+    0%, 100% {{ r: 4; opacity: 0.9; }}
+    50%      {{ r: 6; opacity: 0.5; }}
+}}
 
 .ix-fade-1 {{ animation: ixFadeUp 0.7s ease-out both; }}
 .ix-fade-2 {{ animation: ixFadeUp 0.7s ease-out 0.12s both; }}
@@ -241,11 +258,36 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
     margin-bottom: 10px;
 }}
 
+.ix-why-card {{
+    background: linear-gradient(180deg, #10151F, #0D111A);
+    border: 1px solid {ACCENT}33;
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+}}
+
+.ix-limit-card {{
+    background: #10151F;
+    border: 1px solid #2A2233;
+    border-left: 3px solid {ACCENT2};
+    border-radius: 10px;
+    padding: 16px 18px;
+    height: 100%;
+}}
+
 /* ============================================================
    MOBILE RESPONSIVENESS
    Everything below this line ONLY applies when the browser
    viewport is 768px wide or less (phones/small tablets).
    Desktop layout above this breakpoint is completely untouched.
+
+   Streamlit lays every st.columns() row out as an unshrinkable
+   flex row by default, which is why the app looked like one long
+   stack of full-width blocks on a phone. The rule below lets card
+   rows WRAP onto 2-per-row instead of collapsing to 1-per-row,
+   while content that's genuinely too wide for a phone (charts,
+   tables) still naturally drops to its own row because it can't
+   fit in the 260px minimum.
    ============================================================ */
 @media (max-width: 768px) {{
     .ix-hero-title {{ font-size: 1.6rem !important; }}
@@ -255,6 +297,20 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
     .ix-section-title {{ font-size: 0.98rem !important; }}
     .ix-card {{ padding: 12px 14px !important; }}
     [data-testid="stDataFrame"] {{ font-size: 0.75rem !important; }}
+    .ix-hero-wrap {{ padding: 1.6rem 0 1rem 0 !important; }}
+
+    [data-testid="stHorizontalBlock"] {{
+        flex-wrap: wrap !important;
+        row-gap: 10px !important;
+    }}
+    [data-testid="stHorizontalBlock"] > div {{
+        flex: 1 1 260px !important;
+        min-width: 150px !important;
+        width: auto !important;
+    }}
+    .js-plotly-plot, .plotly {{
+        min-width: 0 !important;
+    }}
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -283,6 +339,9 @@ def icon(name, size=18, color="currentColor", stroke_width=1.8):
         "rocket": '<path d="M12 2c3 2 5 6 4 11l-2 2H10l-2-2c-1-5 1-9 4-11z"/><circle cx="12" cy="9" r="1.5"/><path d="M9 15l-2 5 3-1M15 15l2 5-3-1"/>',
         "cpu": '<rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 4v3M15 4v3M9 17v3M15 17v3M4 9h3M4 15h3M17 9h3M17 15h3"/>',
         "eye": '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+        "sparkle": '<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/>',
+        "compass": '<circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-4-2 2-6 4 2z"/>',
+        "feedback": '<path d="M4 4h16v12H8l-4 4V4z"/><path d="M8 9h8M8 12h5"/>',
     }
     p = paths.get(name, "")
     return (f'<svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" '
@@ -296,11 +355,6 @@ def risk_badge(status):
 
 
 def rate_limited(action_key, cooldown_seconds):
-    """
-    Simple per-session cooldown check using Streamlit's session_state.
-    Returns True if the action is allowed right now (and records the
-    timestamp), or False if it's still within the cooldown window.
-    """
     last_key = f"_last_action_{action_key}"
     now = time.time()
     last = st.session_state.get(last_key, 0)
@@ -311,13 +365,11 @@ def rate_limited(action_key, cooldown_seconds):
 
 
 def current_data_version():
-    """Return a backend revision so cached reads cannot outlive a reset."""
     if get_data_version is not None:
         try:
             return str(get_data_version())
         except Exception:
             pass
-    # Compatibility fallback for older backend revisions.
     try:
         return repr([(row.get("id"), row.get("updated_at"), row.get("revision"))
                      for row in get_all_incidents()])
@@ -327,13 +379,11 @@ def current_data_version():
 
 @st.cache_resource(show_spinner=False)
 def get_graph(data_version):
-    """Cache topology only for the current backend data revision."""
     return build_graph()
 
 
 @st.cache_data(show_spinner=False)
 def get_ranked_incidents(data_version):
-    """Avoid rescoring and rewriting every incident on normal reruns."""
     return prioritize_all_open_incidents()
 
 
@@ -348,6 +398,37 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 if "view" not in st.session_state:
     st.session_state.view = "landing"
+if "dashboard_view" not in st.session_state:
+    st.session_state.dashboard_view = "main"
+
+
+# ============================================================
+# ANIMATED HERO GRAPHIC — hand-built inline SVG, no stock footage/video,
+# just a small network diagram that draws itself in on load and pulses.
+# This is what stands in for the "animation" on the landing page: fully
+# self-contained, no external assets, loads instantly.
+# ============================================================
+def hero_network_svg():
+    return f"""
+    <svg width="100%" height="220" viewBox="0 0 600 220" style="display:block;">
+        <g stroke="{ACCENT}" stroke-width="1.4" fill="none" opacity="0.55">
+            <path d="M60 110 L220 60" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out both;"/>
+            <path d="M60 110 L220 160" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.15s both;"/>
+            <path d="M220 60 L380 100" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.3s both;"/>
+            <path d="M220 160 L380 100" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.45s both;"/>
+            <path d="M380 100 L540 55" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.6s both;"/>
+            <path d="M380 100 L540 150" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.75s both;"/>
+        </g>
+        <circle cx="60" cy="110" r="7" fill="{CRITICAL}" style="animation: ixNodePulse 2.2s ease-in-out infinite;"/>
+        <circle cx="220" cy="60" r="4" fill="{ACCENT}" style="animation: ixNodePulse 2.2s ease-in-out 0.2s infinite;"/>
+        <circle cx="220" cy="160" r="4" fill="{ACCENT}" style="animation: ixNodePulse 2.2s ease-in-out 0.4s infinite;"/>
+        <circle cx="380" cy="100" r="5" fill="{ACCENT2}" style="animation: ixNodePulse 2.2s ease-in-out 0.6s infinite;"/>
+        <circle cx="540" cy="55" r="4" fill="{HIGH}" style="animation: ixNodePulse 2.2s ease-in-out 0.8s infinite;"/>
+        <circle cx="540" cy="150" r="4" fill="{HIGH}" style="animation: ixNodePulse 2.2s ease-in-out 1s infinite;"/>
+        <text x="60" y="132" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="{CRITICAL}">COMPROMISED</text>
+        <text x="540" y="40" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="{HIGH}">CRITICAL SVC</text>
+    </svg>
+    """
 
 
 # ============================================================
@@ -369,18 +450,6 @@ def render_landing():
 
     st.markdown('<div class="ix-hero-wrap">', unsafe_allow_html=True)
 
-    # Decorative floating network graphic (purely visual, CSS-animated)
-    st.markdown(f"""
-    <div style="position:relative; height:0;">
-        <div style="position:absolute; right:2%; top:-40px; opacity:0.5;" class="ix-float">
-            <span style="color:{ACCENT};">{icon('network', 70)}</span>
-        </div>
-        <div style="position:absolute; right:16%; top:70px; opacity:0.35;" class="ix-float-slow">
-            <span style="color:{ACCENT2};">{icon('target', 44)}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
     st.markdown(f"""
     <div class="ix-fade-1" style="max-width: 760px;">
         <div class="ix-eyebrow">IDENTITY-CENTRIC THREAT INTELLIGENCE</div>
@@ -395,15 +464,17 @@ def render_landing():
     """, unsafe_allow_html=True)
 
     st.write("")
-    cta1, cta2, _ = st.columns([1.1, 1.3, 3])
+    cta1, _ = st.columns([1.1, 3.4])
     with cta1:
         if st.button("Get Started", key="hero_cta", type="primary", use_container_width=True,
                       icon=":material/arrow_forward:"):
             goto("auth")
             st.rerun()
-    with cta2:
-        st.link_button("View Source on GitHub", "https://github.com/cybr9628/IMPACT-X",
-                        use_container_width=True, icon=":material/code:")
+
+    st.write("")
+    st.markdown('<div class="ix-card ix-fade-2">', unsafe_allow_html=True)
+    st.markdown(hero_network_svg(), unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
     st.write("")
@@ -433,7 +504,7 @@ def render_landing():
         ("network", "Graph-Native Modeling", "Every identity, application, database, API, and service is a node in one connected, traversable graph."),
         ("target", "Instant Blast Radius", "Trace everything a compromised identity can reach, at any depth, in real time — not a static rule list."),
         ("chart", "Transparent Risk Scoring", "Six auditable, weighted factors combine into one 0-100 score, so priority reflects real impact."),
-        ("document", "Plain-Language Summaries", "Every incident gets a concise, data-grounded write-up an analyst can act on immediately."),
+        ("sparkle", "AI-Assisted Briefings", "Every incident gets an automatically generated, plain-language write-up an analyst can act on immediately — no manual report writing."),
     ]
     fcols = st.columns(4)
     for col, (ic, title, desc) in zip(fcols, features):
@@ -458,7 +529,7 @@ def render_landing():
         ("1", "An incident is detected against a real identity in the graph."),
         ("2", "The engine traces every asset that identity can reach."),
         ("3", "A weighted score ranks the incident by real impact."),
-        ("4", "A concise summary and recommended action are generated."),
+        ("4", "A concise, AI-assisted summary and recommended action are generated."),
     ]
     scols = st.columns(4)
     for col, (n, desc) in zip(scols, steps):
@@ -472,9 +543,56 @@ def render_landing():
 
     st.write("")
     st.write("")
+
+    # Why IMPACT-X
+    st.markdown('<div class="ix-eyebrow">WHY IMPACT-X</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ix-hero-title" style="font-size:1.8rem;">Not just another alert feed</div>', unsafe_allow_html=True)
+    st.write("")
+
+    why_points = [
+        ("compass", "Impact, not just alerts", "Traditional tools tell you *something* happened. IMPACT-X tells you what it could have reached, so triage is based on real business impact, not alert volume."),
+        ("layers", "One unified graph", "Identities, apps, databases, APIs, servers, and cloud resources all live in a single traversable model — no stitching together five different tools."),
+        ("eye", "Fully explainable scoring", "The 0-100 risk score is six named, weighted factors you can see broken down for every incident — never a black box."),
+    ]
+    wcols = st.columns(3)
+    for col, (ic, title, desc) in zip(wcols, why_points):
+        with col:
+            st.markdown(f"""
+            <div class="ix-why-card">
+                <div style="color:{ACCENT}; margin-bottom:10px;">{icon(ic, 24)}</div>
+                <div style="font-weight:600; margin-bottom:8px;">{title}</div>
+                <div style="color:#7C879C; font-size:0.86rem; line-height:1.5;">{desc}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.write("")
+    st.write("")
+
+    # Limitations & Roadmap — honest about current scope, builds credibility
+    st.markdown('<div class="ix-eyebrow">LIMITATIONS &amp; ROADMAP</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ix-hero-title" style="font-size:1.8rem;">Where this stands today</div>', unsafe_allow_html=True)
+    st.write("")
+
+    limits = [
+        "Runs on simulated demo data (NovaTech Corporation) — not yet connected to a live identity provider or SIEM.",
+        "Risk scoring uses fixed weights tuned for the demo dataset, not a model trained on real incident outcomes.",
+        "Best viewed on a desktop browser today; a dedicated mobile-first frontend is in progress.",
+        "Blast radius uses shortest-path reachability, not real-world exploitability or time-to-compromise.",
+    ]
+    lcols = st.columns(2)
+    for i, text in enumerate(limits):
+        with lcols[i % 2]:
+            st.markdown(f"""
+            <div class="ix-limit-card" style="margin-bottom:10px;">
+                <div style="color:#E7ECF5; font-size:0.86rem; line-height:1.5;">{text}</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.write("")
+    st.write("")
     st.divider()
     st.markdown(f"""
-    <div style="display:flex; justify-content:space-between; align-items:center; color:#7C879C; font-size:0.82rem; padding: 6px 0 24px 0;">
+    <div style="display:flex; justify-content:space-between; align-items:center; color:#7C879C; font-size:0.82rem; padding: 6px 0 24px 0; flex-wrap: wrap; gap: 6px;">
         <div>IMPACT-X — Identity-Centric Threat Intelligence Platform</div>
         <div>Simulated demo environment · NovaTech Corporation</div>
     </div>
@@ -510,7 +628,7 @@ def render_auth():
 
                 st.markdown(
                     f'<div style="text-align:center; color:#7C879C; font-size:0.78rem; margin-top:10px;">'
-                    f'{icon("lock", 13)} Your password is hashed and encrypted — never stored in plain text.</div>',
+                    f'{icon("lock", 13)} Your password is hashed — never stored in plain text.</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -537,7 +655,7 @@ def render_auth():
 
                 st.markdown(
                     f'<div style="text-align:center; color:#7C879C; font-size:0.78rem; margin-top:10px;">'
-                    f'{icon("lock", 13)} Your password is hashed and encrypted — never stored in plain text.</div>',
+                    f'{icon("lock", 13)} Your password is hashed and your email is encrypted at rest.</div>',
                     unsafe_allow_html=True,
                 )
 
@@ -554,6 +672,77 @@ def render_auth():
                                 st.error(msg)
                     else:
                         st.warning("Please wait a moment before trying again.")
+
+
+# ============================================================
+# FEEDBACK PAGE
+# ============================================================
+def render_feedback():
+    st.markdown('<div class="ix-eyebrow">HELP US IMPROVE</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="ix-hero-title" style="font-size:1.9rem;">{icon("feedback", 28)} Feedback</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ix-hero-sub">Rate your experience and tell us what to fix next — every response goes straight into the report below.</div>', unsafe_allow_html=True)
+
+    form_col, report_col = st.columns([1, 1.4])
+
+    with form_col:
+        st.markdown('<div class="ix-card">', unsafe_allow_html=True)
+        with st.form("feedback_form"):
+            category = st.selectbox("What's this about?", CATEGORIES)
+            rating = st.slider("Rating", 1, 5, 4, help="1 = poor, 5 = excellent")
+            comments = st.text_area("What worked / what didn't?", placeholder="e.g. the risk gauge was clear, but summaries took a while to load...")
+            improvement = st.text_area("One thing we should improve", placeholder="e.g. faster AI summaries, better mobile layout...")
+            submitted = st.form_submit_button("Submit Feedback", use_container_width=True)
+
+        if submitted:
+            if rate_limited("feedback_submit", cooldown_seconds=2):
+                submit_feedback(
+                    st.session_state.get("current_user", "anonymous"),
+                    category, rating, comments.strip(), improvement.strip(),
+                )
+                st.success("Thanks — your feedback was recorded.")
+                st.rerun()
+            else:
+                st.warning("Please wait a moment before submitting again.")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with report_col:
+        summary = get_feedback_summary()
+        st.markdown('<div class="ix-card">', unsafe_allow_html=True)
+        st.markdown('<div class="ix-kpi-label">COMPILED FEEDBACK REPORT</div>', unsafe_allow_html=True)
+        if summary["count"] == 0:
+            st.caption("No feedback yet — be the first to submit.")
+        else:
+            k1, k2 = st.columns(2)
+            k1.metric("Responses", summary["count"])
+            k2.metric("Average Rating", f"{summary['avg_rating']}/5")
+
+            if summary["by_category"]:
+                cat_df = pd.DataFrame(
+                    [{"Category": k, "Avg Rating": v} for k, v in summary["by_category"].items()]
+                ).sort_values("Avg Rating")
+                fig = go.Figure(go.Bar(
+                    x=cat_df["Avg Rating"], y=cat_df["Category"], orientation="h",
+                    marker_color=ACCENT,
+                ))
+                fig.update_layout(
+                    height=220, margin=dict(l=10, r=10, t=10, b=10),
+                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#E7ECF5", family="Inter"),
+                    xaxis=dict(range=[0, 5], showgrid=True, gridcolor="#1C2433"), yaxis=dict(showgrid=False),
+                )
+                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+            if summary["recent"]:
+                st.markdown('<div class="ix-kpi-label" style="margin-top:8px;">RECENT COMMENTS</div>', unsafe_allow_html=True)
+                for r in summary["recent"]:
+                    st.markdown(f"""
+                    <div class="ix-limit-card" style="margin-bottom:8px;">
+                        <div style="font-size:0.78rem; color:{ACCENT};">{escape(r['category'])} · {r['rating']}/5</div>
+                        <div style="font-size:0.85rem; margin-top:4px;">{escape(r.get('comments') or '')}</div>
+                        {f'<div style="font-size:0.8rem; color:#7C879C; margin-top:4px;">Suggestion: {escape(r["improvement_suggestion"])}</div>' if r.get('improvement_suggestion') else ''}
+                    </div>
+                    """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ============================================================
@@ -582,6 +771,16 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
     st.caption("Identity-Centric Threat Intelligence Platform")
+    st.divider()
+
+    nav1, nav2 = st.columns(2)
+    if nav1.button("Dashboard", use_container_width=True, icon=":material/space_dashboard:"):
+        st.session_state.dashboard_view = "main"
+        st.rerun()
+    if nav2.button("Feedback", use_container_width=True, icon=":material/rate_review:"):
+        st.session_state.dashboard_view = "feedback"
+        st.rerun()
+
     st.divider()
 
     st.markdown("**Simulate an Incident**")
@@ -616,6 +815,13 @@ with st.sidebar:
         st.session_state.pop("current_user", None)
         goto("landing")
         st.rerun()
+
+# ============================================================
+# FEEDBACK VIEW
+# ============================================================
+if st.session_state.dashboard_view == "feedback":
+    render_feedback()
+    st.stop()
 
 # ============================================================
 # HEADER
@@ -921,6 +1127,7 @@ st.write("")
 # INCIDENT ANALYSIS
 # ============================================================
 st.markdown(f'<div class="ix-section-title">{icon("document", 20)} Incident Analysis</div>', unsafe_allow_html=True)
+st.caption("An AI-assisted engine turns the raw numbers above into a plain-language brief — no security background needed to read it.")
 
 ai_key = f"ai_explanation_{inc['id']}"
 

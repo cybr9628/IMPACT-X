@@ -3,16 +3,23 @@ IMPACT-X — Phase 9: AI Security Analyst
 Takes an incident + its blast radius + risk score (Phases 5-7) and produces
 a plain-language executive brief grounded in actual graph data.
 
-Uses Groq (free tier, no billing required, low latency) when GROQ_API_KEY is set.
-Falls back seamlessly to a matching deterministic template if offline or if API calls fail.
+UPDATED:
+  - Prompt rewritten for a non-technical reader (exec/judge), not a SOC lead —
+    shorter sentences, no jargon like "lateral movement" left unexplained.
+  - In-process cache keyed on the numbers that actually determine the
+    output, so re-viewing the same incident (or two people opening the
+    same one) doesn't re-hit the API and doesn't feel slow.
+  - No AI provider name appears anywhere in output or logs surfaced to
+    the user — keep it that way; if you switch providers again later,
+    nothing user-facing needs to change.
 """
 
 import os
 import time
 import concurrent.futures
+from functools import lru_cache
 from dotenv import load_dotenv
 
-# Explicit path to .env file at project root
 _ENV_PATH = os.path.join(os.path.dirname(__file__), "..", ".env")
 load_dotenv(dotenv_path=_ENV_PATH)
 
@@ -21,7 +28,6 @@ _client = None
 
 
 def _get_client():
-    """Lazily creates the Groq client only if an API key is present."""
     global _client
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
@@ -36,84 +42,80 @@ def _get_client():
 
 
 def _build_prompt(incident, blast_radius, risk):
-    """Builds a structured prompt forcing exact executive briefing formatting."""
+    """Plain-language prompt: write for someone who has never seen a SOC
+    dashboard before, not a security analyst."""
     services = ", ".join(
-        f"{s['label']} ({s['criticality']})" for s in blast_radius.get("business_services_affected", [])
-    ) or "None monitored"
+        f"{s['label']} ({s['criticality']} priority)" for s in blast_radius.get("business_services_affected", [])
+    ) or "no critical business services"
 
     top_path = None
     if blast_radius.get("business_services_affected"):
         top_path = blast_radius["business_services_affected"][0].get("attack_path")
-    path_str = " → ".join(top_path) if top_path else "No direct attack path to critical services"
+    path_str = " → ".join(top_path) if top_path else "no direct route to a critical service"
 
-    return f"""You are a senior SOC lead briefing executive management on a security incident.
-Provide a clear, structured assessment in exactly 3 sections using markdown bold titles.
+    return f"""You are explaining a cybersecurity incident to a non-technical executive
+who has 30 seconds to read this. Avoid jargon. If you must use a technical
+term, briefly explain it in plain words the first time.
 
-INCIDENT METRICS:
-- Identity: {incident['user_name']} ({incident['role']}, {incident['department']}) | Privilege: {incident['privilege_level']}
-- Incident Event: {incident['incident_type']}
-- Risk Rating: {risk['score']}/100 ({risk['status']})
-- Reachable Assets: {blast_radius['reachable_count']} total ({blast_radius['critical_count']} critical)
-- Critical Services Exposed: {services}
-- Example Attack Path: {path_str}
+INCIDENT FACTS:
+- Person involved: {incident['user_name']}, {incident['role']} in {incident['department']} (access level: {incident['privilege_level']})
+- What happened: {incident['incident_type']}
+- Risk score: {risk['score']}/100 ({risk['status']})
+- Systems this account could reach: {blast_radius['reachable_count']} total, {blast_radius['critical_count']} of them sensitive
+- Important services within reach: {services}
+- Example path an attacker could take: {path_str}
 
-Format your output EXACTLY as:
-**Primary Threat:** [1 concise sentence on what occurred and who triggered it]
-**Business Impact:** [1-2 sentences explaining reachable assets, critical service exposure, and lateral movement risk]
-**Immediate Action:** [1 direct, actionable containment recommendation]"""
+Write exactly 3 short sections using markdown bold titles, plain sentences, no bullet lists:
+**What Happened:** [1 simple sentence — who, and what triggered the alert]
+**Why It Matters:** [1-2 plain sentences — what could have been reached and how serious that is, avoid technical terms like "lateral movement"]
+**What To Do Now:** [1 direct, concrete action a non-technical reader could hand to IT]"""
 
 
 def _fallback_explanation(incident, blast_radius, risk):
-    """Deterministic structured template matching the AI format when API key is unavailable."""
+    """Deterministic plain-language template used when no AI backend is
+    configured or the call fails — matches the same 3-section format."""
     services = blast_radius.get("business_services_affected", [])
-    service_names = ", ".join(s["label"] for s in services) if services else "no monitored business services"
+    service_names = ", ".join(s["label"] for s in services) if services else "no critical systems"
 
-    top_path = services[0].get("attack_path") if services and services[0].get("attack_path") else []
-    path_str = " → ".join(top_path) if top_path else "no direct path to critical business services"
-
-    # Section 1: Primary Threat
-    primary_threat = (
-        f"**Primary Threat:** {incident['user_name']} ({incident['role']}, {incident['department']}, "
-        f"{incident['privilege_level']} privilege) triggered a '{incident['incident_type']}' security alert."
+    what_happened = (
+        f"**What Happened:** {incident['user_name']} ({incident['role']}, {incident['department']}) "
+        f"triggered a security alert: '{incident['incident_type']}'."
     )
 
-    # Section 2: Business Impact
     if risk["status"] in ("CRITICAL", "HIGH"):
-        impact = (
-            f"**Business Impact:** Identity can reach {blast_radius['reachable_count']} total assets "
-            f"({blast_radius['critical_count']} critical), placing {service_names} at risk via path: {path_str}."
+        why = (
+            f"**Why It Matters:** This account could reach {blast_radius['reachable_count']} systems in total, "
+            f"including {blast_radius['critical_count']} that hold sensitive data. That puts {service_names} at risk "
+            f"if the account is actually compromised."
         )
     else:
-        impact = (
-            f"**Business Impact:** Threat reach is contained to {blast_radius['reachable_count']} total assets "
-            f"({blast_radius['critical_count']} critical) with low risk to enterprise operations."
+        why = (
+            f"**Why It Matters:** This account's reach is limited — {blast_radius['reachable_count']} systems total, "
+            f"only {blast_radius['critical_count']} sensitive — so the potential damage is low even in a worst case."
         )
 
-    # Section 3: Immediate Action
     if risk["status"] == "CRITICAL":
         action = (
-            f"**Immediate Action:** Disable user '{incident['user_name']}' immediately, revoke active sessions, "
-            f"and perform forensic audits on all reachable critical systems."
+            f"**What To Do Now:** Disable '{incident['user_name']}''s account immediately, log them out of every "
+            f"session, and have IT check the systems this account could reach for anything unusual."
         )
     elif risk["status"] == "HIGH":
         action = (
-            f"**Immediate Action:** Suspend access privileges for '{incident['user_name']}' pending SOC triage "
-            f"and isolate vulnerable target nodes."
+            f"**What To Do Now:** Temporarily suspend this account's access while IT confirms whether the activity "
+            f"was legitimate."
         )
     elif risk["status"] == "MEDIUM":
         action = (
-            f"**Immediate Action:** Review recent activity logs during standard triage to verify action authorization."
+            f"**What To Do Now:** Have IT review this account's recent activity logs as part of normal checks — "
+            f"no urgent action needed yet."
         )
     else:
-        action = (
-            f"**Immediate Action:** Log incident for operational record; no account suspension required."
-        )
+        action = "**What To Do Now:** No action needed — this is logged for the record only."
 
-    return f"{primary_threat}\n\n{impact}\n\n{action}"
+    return f"{what_happened}\n\n{why}\n\n{action}"
 
 
 def _call_groq(client, prompt):
-    """Runs the API call with strict formatting constraint parameters."""
     response = client.chat.completions.create(
         model=MODEL,
         messages=[{"role": "user", "content": prompt}],
@@ -123,9 +125,19 @@ def _call_groq(client, prompt):
     return response.choices[0].message.content.strip()
 
 
+@lru_cache(maxsize=256)
+def _cached_call(cache_key, prompt):
+    """The cache key is the incident id + risk score + reachable count —
+    the exact things that determine the output. Same incident, same
+    numbers, same viewer or a different one -> instant, no repeat API
+    call. This is what actually addresses "the AI summary feels slow"."""
+    client = _get_client()
+    return _call_groq(client, prompt)
+
+
 def explain_incident(incident, blast_radius, risk, max_retries=2, timeout_seconds=20):
     """
-    Returns a dict: {"explanation": str, "source": "ai" | "template", "error": optional_str}
+    Returns a dict: {"explanation": str, "source": "ai" | "template" | "cached", "error": optional_str}
     """
     client = _get_client()
 
@@ -133,16 +145,17 @@ def explain_incident(incident, blast_radius, risk, max_retries=2, timeout_second
         return {"explanation": _fallback_explanation(incident, blast_radius, risk), "source": "template"}
 
     prompt = _build_prompt(incident, blast_radius, risk)
-    last_error = None
+    cache_key = (incident["id"], risk["score"], blast_radius["reachable_count"], blast_radius["critical_count"])
 
+    last_error = None
     for attempt in range(max_retries + 1):
         try:
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(_call_groq, client, prompt)
+                future = executor.submit(_cached_call, cache_key, prompt)
                 text = future.result(timeout=timeout_seconds)
             return {"explanation": text, "source": "ai"}
         except concurrent.futures.TimeoutError:
-            last_error = f"Timed out after {timeout_seconds}s (no response from Groq)."
+            last_error = f"Timed out after {timeout_seconds}s waiting for a response."
             break
         except Exception as e:
             last_error = str(e)
@@ -151,7 +164,6 @@ def explain_incident(incident, blast_radius, risk, max_retries=2, timeout_second
                 continue
             break
 
-    # Fallback execution if API attempts fail
     fallback = _fallback_explanation(incident, blast_radius, risk)
     return {"explanation": fallback, "source": "template", "error": last_error}
 
