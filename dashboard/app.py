@@ -77,9 +77,13 @@ html, body, [class*="css"] {{
 
 .stApp {{
     background:
-        radial-gradient(ellipse 900px 500px at 15% -10%, rgba(33,212,224,0.08), transparent),
-        radial-gradient(ellipse 700px 400px at 100% 0%, rgba(255,67,101,0.06), transparent),
-        #090D16;
+        radial-gradient(560px 480px at 6% 12%, rgba(53,212,140,0.38), transparent 62%),
+        radial-gradient(520px 440px at 52% 2%, rgba(255,209,102,0.26), transparent 60%),
+        radial-gradient(620px 540px at 94% 22%, rgba(124,111,240,0.34), transparent 62%),
+        radial-gradient(520px 480px at 18% 92%, rgba(33,212,224,0.26), transparent 62%),
+        radial-gradient(480px 420px at 85% 88%, rgba(255,67,101,0.16), transparent 60%),
+        #06080F;
+    background-attachment: fixed;
 }}
 
 section[data-testid="stSidebar"] {{
@@ -111,14 +115,14 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', sans-serif !important; letter-spacin
 .ix-hero-sub {{ color: #7C879C; font-size: 0.95rem; margin-bottom: 1.4rem; }}
 
 .ix-card {{
-    background: rgba(16, 21, 31, 0.55);
-    backdrop-filter: blur(16px) saturate(160%);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 12px;
-    padding: 16px 18px;
+    background: rgba(22, 26, 38, 0.42);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px;
+    padding: 18px 20px;
     height: 100%;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
 }}
 
 .ix-kpi-label {{
@@ -149,24 +153,42 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', sans-serif !important; letter-spacin
 .ix-badge {{
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.72rem;
-    font-weight: 600;
-    padding: 3px 9px;
-    border-radius: 20px;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 999px;
     letter-spacing: 0.03em;
 }}
 
 .ix-mono {{ font-family: 'JetBrains Mono', monospace; }}
 
-hr {{ border-color: #1C2433 !important; }}
+hr {{ border-color: rgba(255,255,255,0.08) !important; }}
 
-[data-testid="stDataFrame"] {{ border: 1px solid #1C2433; border-radius: 10px; overflow: hidden; }}
+[data-testid="stDataFrame"] {{
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    overflow: hidden;
+}}
 
 div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 
 .stButton > button {{
     font-family: 'Inter', sans-serif;
-    border-radius: 8px;
-    border: 1px solid #1C2433;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}}
+.stButton > button[kind="primary"] {{
+    background: linear-gradient(90deg, {ACCENT}, {ACCENT2});
+    border: none;
+    box-shadow: 0 4px 18px {ACCENT}44;
+}}
+
+.stTextInput input, .stSelectbox [data-baseweb="select"] > div, .stTextArea textarea {{
+    background: rgba(255,255,255,0.04) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
 }}
 
 /* ============================================================
@@ -225,15 +247,15 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 .ix-hero-wrap {{ position: relative; padding: 3.2rem 0 2rem 0; overflow: hidden; }}
 
 .ix-feature-card {{
-    background: rgba(16, 21, 31, 0.5);
-    backdrop-filter: blur(16px) saturate(160%);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
-    border: 1px solid rgba(255,255,255,0.08);
-    border-radius: 14px;
+    background: rgba(22, 26, 38, 0.38);
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 20px;
     padding: 22px 20px;
     transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
     height: 100%;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
 }}
 .ix-feature-card:hover {{
     transform: translateY(-4px);
@@ -268,23 +290,23 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 }}
 
 .ix-why-card {{
-    background: linear-gradient(180deg, rgba(16,21,31,0.6), rgba(13,17,26,0.45));
-    backdrop-filter: blur(16px) saturate(160%);
-    -webkit-backdrop-filter: blur(16px) saturate(160%);
-    border: 1px solid rgba(33,212,224,0.22);
-    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(22,26,38,0.45), rgba(18,21,32,0.32));
+    backdrop-filter: blur(22px) saturate(180%);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid rgba(33,212,224,0.25);
+    border-radius: 20px;
     padding: 20px;
     height: 100%;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
 }}
 
 .ix-limit-card {{
-    background: rgba(16, 21, 31, 0.5);
-    backdrop-filter: blur(14px) saturate(150%);
-    -webkit-backdrop-filter: blur(14px) saturate(150%);
-    border: 1px solid rgba(124,111,240,0.18);
+    background: rgba(22, 26, 38, 0.4);
+    backdrop-filter: blur(20px) saturate(170%);
+    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    border: 1px solid rgba(124,111,240,0.2);
     border-left: 3px solid {ACCENT2};
-    border-radius: 10px;
+    border-radius: 16px;
     padding: 16px 18px;
     height: 100%;
 }}
@@ -369,11 +391,12 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 }}
 
 div[data-testid="stVerticalBlockBorderWrapper"] {{
-    background: rgba(16, 21, 31, 0.55) !important;
-    backdrop-filter: blur(18px) saturate(160%) !important;
-    -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
-    border: 1px solid rgba(255,255,255,0.08) !important;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    background: rgba(22, 26, 38, 0.45) !important;
+    backdrop-filter: blur(22px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+    border: 1px solid rgba(255,255,255,0.1) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06) !important;
 }}
 
 .stTabs [data-baseweb="tab-list"] {{
@@ -420,7 +443,13 @@ def icon(name, size=18, color="currentColor", stroke_width=1.8):
 
 def risk_badge(status):
     color = RISK_COLOR.get(status, "#7C879C")
-    return f'<span class="ix-badge" style="background:{color}22; color:{color}; border:1px solid {color}55;">{status}</span>'
+    # Warm colors (yellow/green) read better with dark text on a solid fill;
+    # the reds/oranges stay legible with white text — matches the solid
+    # pill-chip style in the reference design instead of tinted text.
+    dark_text_statuses = {"MEDIUM", "LOW"}
+    text_color = "#0A0E16" if status in dark_text_statuses else "#FFFFFF"
+    return (f'<span class="ix-badge" style="background:{color}; color:{text_color}; '
+            f'box-shadow: 0 2px 10px {color}55;">{status}</span>')
 
 
 def rate_limited(action_key, cooldown_seconds):
