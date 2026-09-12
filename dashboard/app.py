@@ -83,8 +83,10 @@ html, body, [class*="css"] {{
 }}
 
 section[data-testid="stSidebar"] {{
-    background-color: #0C1119;
-    border-right: 1px solid #1C2433;
+    background: rgba(12, 17, 25, 0.75);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-right: 1px solid rgba(255,255,255,0.06);
 }}
 
 h1, h2, h3 {{ font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -0.01em; }}
@@ -109,11 +111,14 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', sans-serif !important; letter-spacin
 .ix-hero-sub {{ color: #7C879C; font-size: 0.95rem; margin-bottom: 1.4rem; }}
 
 .ix-card {{
-    background: #10151F;
-    border: 1px solid #1C2433;
-    border-radius: 10px;
+    background: rgba(16, 21, 31, 0.55);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
     padding: 16px 18px;
     height: 100%;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05);
 }}
 
 .ix-kpi-label {{
@@ -220,16 +225,20 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 .ix-hero-wrap {{ position: relative; padding: 3.2rem 0 2rem 0; overflow: hidden; }}
 
 .ix-feature-card {{
-    background: #10151F;
-    border: 1px solid #1C2433;
-    border-radius: 12px;
+    background: rgba(16, 21, 31, 0.5);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
     padding: 22px 20px;
-    transition: transform 0.25s ease, border-color 0.25s ease;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
     height: 100%;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
 }}
 .ix-feature-card:hover {{
     transform: translateY(-4px);
-    border-color: {ACCENT}55;
+    border-color: {ACCENT}66;
+    box-shadow: 0 8px 32px rgba(33,212,224,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
 }}
 
 .ix-stat-num {{
@@ -259,16 +268,21 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 }}
 
 .ix-why-card {{
-    background: linear-gradient(180deg, #10151F, #0D111A);
-    border: 1px solid {ACCENT}33;
-    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(16,21,31,0.6), rgba(13,17,26,0.45));
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid rgba(33,212,224,0.22);
+    border-radius: 14px;
     padding: 20px;
     height: 100%;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
 }}
 
 .ix-limit-card {{
-    background: #10151F;
-    border: 1px solid #2A2233;
+    background: rgba(16, 21, 31, 0.5);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    border: 1px solid rgba(124,111,240,0.18);
     border-left: 3px solid {ACCENT2};
     border-radius: 10px;
     padding: 16px 18px;
@@ -299,18 +313,73 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
     [data-testid="stDataFrame"] {{ font-size: 0.75rem !important; }}
     .ix-hero-wrap {{ padding: 1.6rem 0 1rem 0 !important; }}
 
-    [data-testid="stHorizontalBlock"] {{
+    /* Scoped 2-up grids for card rows on phones. Each of these keys
+       wraps ONE specific st.columns() row (see app.py), so this only
+       touches small cards — charts, dataframes, and the blast-radius
+       explorer are left at their default full-width mobile stacking
+       because they actually need the room. */
+    .st-key-grid-stats [data-testid="stHorizontalBlock"],
+    .st-key-grid-features [data-testid="stHorizontalBlock"],
+    .st-key-grid-steps [data-testid="stHorizontalBlock"],
+    .st-key-grid-why [data-testid="stHorizontalBlock"],
+    .st-key-grid-limits [data-testid="stHorizontalBlock"],
+    .st-key-grid-kpis [data-testid="stHorizontalBlock"],
+    .st-key-grid-mini [data-testid="stHorizontalBlock"] {{
         flex-wrap: wrap !important;
         row-gap: 10px !important;
+        column-gap: 10px !important;
     }}
-    [data-testid="stHorizontalBlock"] > div {{
-        flex: 1 1 260px !important;
-        min-width: 150px !important;
-        width: auto !important;
+    .st-key-grid-stats [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-features [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-steps [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-why [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-limits [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-kpis [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-mini [data-testid="stHorizontalBlock"] > div {{
+        flex: 1 1 calc(50% - 6px) !important;
+        min-width: calc(50% - 6px) !important;
+        width: calc(50% - 6px) !important;
     }}
+
     .js-plotly-plot, .plotly {{
         min-width: 0 !important;
     }}
+}}
+
+/* Extra-narrow phones (<420px): drop even the 2-up small-card grids to
+   a single column so text never gets squeezed unreadably. */
+@media (max-width: 420px) {{
+    .st-key-grid-stats [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-features [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-steps [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-why [data-testid="stHorizontalBlock"] > div,
+    .st-key-grid-kpis [data-testid="stHorizontalBlock"] > div {{
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+        width: 100% !important;
+    }}
+}}
+
+/* ============================================================
+   GLASS POLISH — badges, bordered auth container, sticky-feel header
+   ============================================================ */
+.ix-badge {{
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}}
+
+div[data-testid="stVerticalBlockBorderWrapper"] {{
+    background: rgba(16, 21, 31, 0.55) !important;
+    backdrop-filter: blur(18px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+}}
+
+.stTabs [data-baseweb="tab-list"] {{
+    background: rgba(255,255,255,0.03);
+    border-radius: 8px;
+    padding: 4px;
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -480,17 +549,18 @@ def render_landing():
     st.write("")
 
     # Stats row
-    stat_cols = st.columns(4)
-    stats = [("70", "Identities Modeled"), ("95", "Assets Tracked"),
-             ("215", "Relationships Mapped"), ("6", "Weighted Risk Factors")]
-    for col, (num, label) in zip(stat_cols, stats):
-        with col:
-            st.markdown(f"""
-            <div class="ix-card ix-fade-2" style="text-align:center;">
-                <div class="ix-stat-num">{num}</div>
-                <div class="ix-stat-label">{label}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    with st.container(key="grid-stats"):
+        stat_cols = st.columns(4)
+        stats = [("70", "Identities Modeled"), ("95", "Assets Tracked"),
+                 ("215", "Relationships Mapped"), ("6", "Weighted Risk Factors")]
+        for col, (num, label) in zip(stat_cols, stats):
+            with col:
+                st.markdown(f"""
+                <div class="ix-card ix-fade-2" style="text-align:center;">
+                    <div class="ix-stat-num">{num}</div>
+                    <div class="ix-stat-label">{label}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
     st.write("")
     st.write("")
@@ -506,16 +576,17 @@ def render_landing():
         ("chart", "Transparent Risk Scoring", "Six auditable, weighted factors combine into one 0-100 score, so priority reflects real impact."),
         ("sparkle", "AI-Assisted Briefings", "Every incident gets an automatically generated, plain-language write-up an analyst can act on immediately — no manual report writing."),
     ]
-    fcols = st.columns(4)
-    for col, (ic, title, desc) in zip(fcols, features):
-        with col:
-            st.markdown(f"""
-            <div class="ix-feature-card">
-                <div style="color:{ACCENT}; margin-bottom:12px;">{icon(ic, 26)}</div>
-                <div style="font-weight:600; margin-bottom:8px;">{title}</div>
-                <div style="color:#7C879C; font-size:0.88rem; line-height:1.5;">{desc}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    with st.container(key="grid-features"):
+        fcols = st.columns(4)
+        for col, (ic, title, desc) in zip(fcols, features):
+            with col:
+                st.markdown(f"""
+                <div class="ix-feature-card">
+                    <div style="color:{ACCENT}; margin-bottom:12px;">{icon(ic, 26)}</div>
+                    <div style="font-weight:600; margin-bottom:8px;">{title}</div>
+                    <div style="color:#7C879C; font-size:0.88rem; line-height:1.5;">{desc}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
     st.write("")
     st.write("")
@@ -531,15 +602,16 @@ def render_landing():
         ("3", "A weighted score ranks the incident by real impact."),
         ("4", "A concise, AI-assisted summary and recommended action are generated."),
     ]
-    scols = st.columns(4)
-    for col, (n, desc) in zip(scols, steps):
-        with col:
-            st.markdown(f"""
-            <div class="ix-card">
-                <div class="ix-step-num">{n}</div>
-                <div style="color:#E7ECF5; font-size:0.9rem; line-height:1.5;">{desc}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    with st.container(key="grid-steps"):
+        scols = st.columns(4)
+        for col, (n, desc) in zip(scols, steps):
+            with col:
+                st.markdown(f"""
+                <div class="ix-card">
+                    <div class="ix-step-num">{n}</div>
+                    <div style="color:#E7ECF5; font-size:0.9rem; line-height:1.5;">{desc}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
     st.write("")
     st.write("")
@@ -554,16 +626,17 @@ def render_landing():
         ("layers", "One unified graph", "Identities, apps, databases, APIs, servers, and cloud resources all live in a single traversable model — no stitching together five different tools."),
         ("eye", "Fully explainable scoring", "The 0-100 risk score is six named, weighted factors you can see broken down for every incident — never a black box."),
     ]
-    wcols = st.columns(3)
-    for col, (ic, title, desc) in zip(wcols, why_points):
-        with col:
-            st.markdown(f"""
-            <div class="ix-why-card">
-                <div style="color:{ACCENT}; margin-bottom:10px;">{icon(ic, 24)}</div>
-                <div style="font-weight:600; margin-bottom:8px;">{title}</div>
-                <div style="color:#7C879C; font-size:0.86rem; line-height:1.5;">{desc}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    with st.container(key="grid-why"):
+        wcols = st.columns(3)
+        for col, (ic, title, desc) in zip(wcols, why_points):
+            with col:
+                st.markdown(f"""
+                <div class="ix-why-card">
+                    <div style="color:{ACCENT}; margin-bottom:10px;">{icon(ic, 24)}</div>
+                    <div style="font-weight:600; margin-bottom:8px;">{title}</div>
+                    <div style="color:#7C879C; font-size:0.86rem; line-height:1.5;">{desc}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
     st.write("")
     st.write("")
@@ -579,14 +652,15 @@ def render_landing():
         "Best viewed on a desktop browser today; a dedicated mobile-first frontend is in progress.",
         "Blast radius uses shortest-path reachability, not real-world exploitability or time-to-compromise.",
     ]
-    lcols = st.columns(2)
-    for i, text in enumerate(limits):
-        with lcols[i % 2]:
-            st.markdown(f"""
-            <div class="ix-limit-card" style="margin-bottom:10px;">
-                <div style="color:#E7ECF5; font-size:0.86rem; line-height:1.5;">{text}</div>
-            </div>
-            """, unsafe_allow_html=True)
+    with st.container(key="grid-limits"):
+        lcols = st.columns(2)
+        for i, text in enumerate(limits):
+            with lcols[i % 2]:
+                st.markdown(f"""
+                <div class="ix-limit-card" style="margin-bottom:10px;">
+                    <div style="color:#E7ECF5; font-size:0.86rem; line-height:1.5;">{text}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
     st.write("")
     st.write("")
@@ -908,34 +982,36 @@ with gauge_col:
     st.markdown('</div>', unsafe_allow_html=True)
 
 with kpi_col:
-    k1, k2, k3, k4 = st.columns(4)
-    kpis = [
-        (k1, "Open Incidents", len(ranked), None),
-        (k2, "Critical", critical_n, CRITICAL if critical_n else None),
-        (k3, "High", high_n, HIGH if high_n else None),
-        (k4, "Services at Risk", services_at_risk, CRITICAL if services_at_risk else None),
-    ]
-    for col, label, value, color in kpis:
-        c = color or "#E7ECF5"
-        col.markdown(f"""
-        <div class="ix-card">
-            <div class="ix-kpi-label">{label}</div>
-            <div class="ix-kpi-value" style="color:{c};">{value}</div>
-        </div>
-        """, unsafe_allow_html=True)
+    with st.container(key="grid-kpis"):
+        k1, k2, k3, k4 = st.columns(4)
+        kpis = [
+            (k1, "Open Incidents", len(ranked), None),
+            (k2, "Critical", critical_n, CRITICAL if critical_n else None),
+            (k3, "High", high_n, HIGH if high_n else None),
+            (k4, "Services at Risk", services_at_risk, CRITICAL if services_at_risk else None),
+        ]
+        for col, label, value, color in kpis:
+            c = color or "#E7ECF5"
+            col.markdown(f"""
+            <div class="ix-card">
+                <div class="ix-kpi-label">{label}</div>
+                <div class="ix-kpi-value" style="color:{c};">{value}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
     st.write("")
-    a1, a2 = st.columns(2)
-    a1.markdown(f"""
-    <div class="ix-card">
-        <div class="ix-kpi-label">Assets Monitored</div>
-        <div class="ix-kpi-value" style="font-size:1.5rem;">{total_assets_monitored}</div>
-    </div>""", unsafe_allow_html=True)
-    a2.markdown(f"""
-    <div class="ix-card">
-        <div class="ix-kpi-label">Identities Tracked</div>
-        <div class="ix-kpi-value" style="font-size:1.5rem;">{sum(1 for _,d in graph.nodes(data=True) if d.get('node_type')=='user')}</div>
-    </div>""", unsafe_allow_html=True)
+    with st.container(key="grid-mini"):
+        a1, a2 = st.columns(2)
+        a1.markdown(f"""
+        <div class="ix-card">
+            <div class="ix-kpi-label">Assets Monitored</div>
+            <div class="ix-kpi-value" style="font-size:1.5rem;">{total_assets_monitored}</div>
+        </div>""", unsafe_allow_html=True)
+        a2.markdown(f"""
+        <div class="ix-card">
+            <div class="ix-kpi-label">Identities Tracked</div>
+            <div class="ix-kpi-value" style="font-size:1.5rem;">{sum(1 for _,d in graph.nodes(data=True) if d.get('node_type')=='user')}</div>
+        </div>""", unsafe_allow_html=True)
 
 st.write("")
 st.write("")
@@ -1148,3 +1224,4 @@ if ai_key in st.session_state:
     """, unsafe_allow_html=True)
 else:
     st.caption("Click above to generate a concise summary of this incident's impact.")
+    
