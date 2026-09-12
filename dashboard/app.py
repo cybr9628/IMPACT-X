@@ -87,10 +87,11 @@ html, body, [class*="css"] {{
 }}
 
 section[data-testid="stSidebar"] {{
-    background: rgba(12, 17, 25, 0.75);
-    backdrop-filter: blur(18px) saturate(140%);
-    -webkit-backdrop-filter: blur(18px) saturate(140%);
-    border-right: 1px solid rgba(255,255,255,0.06);
+    background: rgba(14, 18, 27, 0.7);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-right: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 8px 0 30px rgba(0,0,0,0.35);
 }}
 
 h1, h2, h3 {{ font-family: 'Space Grotesk', sans-serif !important; letter-spacing: -0.01em; }}
@@ -115,14 +116,19 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', sans-serif !important; letter-spacin
 .ix-hero-sub {{ color: #7C879C; font-size: 0.95rem; margin-bottom: 1.4rem; }}
 
 .ix-card {{
-    background: rgba(22, 26, 38, 0.42);
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 20px;
+    background: rgba(24, 29, 42, 0.5);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-top: 1px solid rgba(255,255,255,0.24);
+    border-radius: 18px;
     padding: 18px 20px;
     height: 100%;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.25),
+        0 12px 28px rgba(0,0,0,0.35),
+        0 28px 60px rgba(0,0,0,0.25),
+        inset 0 1px 0 rgba(255,255,255,0.1);
 }}
 
 .ix-kpi-label {{
@@ -244,144 +250,31 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 }}
 .ix-nav-links {{ display:flex; gap: 28px; color:#7C879C; font-size:0.92rem; }}
 
-.ix-hero-wrap {{ position: relative; padding: 2.4rem 0 3rem 0; overflow: visible; }}
-
-/* ============================================================
-   REFERENCE-STYLE HERO: a distinct bordered glass rectangle with
-   organic glossy blobs/orbs floating around and behind it (not just
-   blur-on-a-flat-card — an actual outlined glass pane over artwork).
-   ============================================================ */
-.ix-hero-stage {{
-    position: relative;
-    padding: 70px 40px;
-    overflow: visible;
-}}
-
-.ix-blob {{
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(2px);
-    z-index: 1;
-    pointer-events: none;
-}}
-.ix-blob-soft {{ filter: blur(18px); }}
-
-.ix-tube {{
-    position: absolute;
-    z-index: 1;
-    pointer-events: none;
-    border-radius: 999px;
-    filter: blur(1px);
-    box-shadow: inset -10px -10px 30px rgba(0,0,0,0.35), inset 8px 8px 20px rgba(255,255,255,0.15);
-}}
-
-.ix-sphere {{
-    position: absolute;
-    border-radius: 50%;
-    z-index: 3;
-    pointer-events: none;
-    box-shadow: inset -8px -10px 24px rgba(0,0,0,0.4), inset 6px 8px 18px rgba(255,255,255,0.35), 0 10px 30px rgba(0,0,0,0.4);
-}}
-
-.ix-sphere-rings {{
-    position: absolute;
-    border-radius: 50%;
-    border: 1px solid rgba(255,255,255,0.14);
-    z-index: 2;
-    pointer-events: none;
-}}
-
-.ix-glass-card {{
-    position: relative;
-    z-index: 4;
-    max-width: 980px;
-    margin: 0 auto;
-    background: rgba(255,255,255,0.06);
-    backdrop-filter: blur(26px) saturate(160%);
-    -webkit-backdrop-filter: blur(26px) saturate(160%);
-    border: 1.5px solid rgba(255,255,255,0.32);
-    border-radius: 28px;
-    padding: 28px 40px 40px 40px;
-    box-shadow: 0 30px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15);
-}}
-
-.ix-glass-nav {{
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 12px;
-    padding-bottom: 22px;
-    margin-bottom: 24px;
-    border-bottom: 1px solid rgba(255,255,255,0.12);
-}}
-.ix-glass-nav-brand {{
-    display: flex; align-items: center; gap: 10px;
-    font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 1.05rem;
-}}
-.ix-glass-nav-links {{
-    display: flex; align-items: center; gap: 20px;
-    font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; letter-spacing: 0.08em;
-}}
-.ix-glass-nav-links a {{
-    color: rgba(231,236,245,0.75); text-decoration: none; text-transform: uppercase;
-    transition: color 0.2s ease;
-}}
-.ix-glass-nav-links a:hover {{ color: {ACCENT}; }}
-.ix-glass-nav-links span.sep {{ color: rgba(255,255,255,0.2); }}
-
-.ix-pill-link {{
-    display: inline-flex; align-items: center; gap: 6px;
-    font-family: 'Inter', sans-serif; font-size: 0.85rem; font-weight: 600;
-    text-decoration: none;
-    padding: 9px 22px;
-    border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.35);
-    background: rgba(255,255,255,0.06);
-    backdrop-filter: blur(10px);
-    color: #E7ECF5;
-    transition: all 0.2s ease;
-}}
-.ix-pill-link:hover {{
-    border-color: {ACCENT};
-    background: rgba(33,212,224,0.12);
-}}
-.ix-pill-link-solid {{
-    background: linear-gradient(90deg, {ACCENT}, {ACCENT2});
-    border: none;
-    color: #06080F;
-    box-shadow: 0 6px 22px {ACCENT}44;
-}}
-.ix-pill-link-solid:hover {{
-    color: #06080F;
-    filter: brightness(1.08);
-}}
-
-.ix-hero-dots {{ display: flex; gap: 8px; margin-top: 26px; }}
-.ix-hero-dots span {{ width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.25); display:inline-block; }}
-.ix-hero-dots span.active {{ background: {ACCENT}; width: 22px; border-radius: 4px; }}
-
-@media (max-width: 768px) {{
-    .ix-hero-stage {{ padding: 30px 6px !important; }}
-    .ix-glass-card {{ padding: 20px 20px 28px 20px !important; border-radius: 22px !important; }}
-    .ix-blob, .ix-tube, .ix-sphere, .ix-sphere-rings {{ transform: scale(0.55); }}
-}}
+.ix-hero-wrap {{ position: relative; padding: 3.2rem 0 2rem 0; overflow: hidden; }}
 
 .ix-feature-card {{
-    background: rgba(22, 26, 38, 0.38);
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 20px;
+    background: rgba(24, 29, 42, 0.45);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255,255,255,0.14);
+    border-top: 1px solid rgba(255,255,255,0.26);
+    border-radius: 18px;
     padding: 22px 20px;
     transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
     height: 100%;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.2),
+        0 12px 28px rgba(0,0,0,0.3),
+        0 28px 60px rgba(0,0,0,0.2),
+        inset 0 1px 0 rgba(255,255,255,0.1);
 }}
 .ix-feature-card:hover {{
     transform: translateY(-4px);
     border-color: {ACCENT}66;
-    box-shadow: 0 8px 32px rgba(33,212,224,0.15), inset 0 1px 0 rgba(255,255,255,0.08);
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.2),
+        0 16px 36px rgba(33,212,224,0.18),
+        inset 0 1px 0 rgba(255,255,255,0.14);
 }}
 
 .ix-stat-num {{
@@ -411,25 +304,32 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 }}
 
 .ix-why-card {{
-    background: linear-gradient(180deg, rgba(22,26,38,0.45), rgba(18,21,32,0.32));
-    backdrop-filter: blur(22px) saturate(180%);
-    -webkit-backdrop-filter: blur(22px) saturate(180%);
-    border: 1px solid rgba(33,212,224,0.25);
-    border-radius: 20px;
+    background: linear-gradient(180deg, rgba(24,29,42,0.5), rgba(18,21,32,0.35));
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(33,212,224,0.28);
+    border-top: 1px solid rgba(33,212,224,0.4);
+    border-radius: 18px;
     padding: 20px;
     height: 100%;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06);
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.2),
+        0 12px 28px rgba(0,0,0,0.3),
+        0 28px 60px rgba(0,0,0,0.2),
+        inset 0 1px 0 rgba(255,255,255,0.1);
 }}
 
 .ix-limit-card {{
-    background: rgba(22, 26, 38, 0.4);
+    background: rgba(24, 29, 42, 0.45);
     backdrop-filter: blur(20px) saturate(170%);
     -webkit-backdrop-filter: blur(20px) saturate(170%);
-    border: 1px solid rgba(124,111,240,0.2);
+    border: 1px solid rgba(124,111,240,0.24);
+    border-top: 1px solid rgba(124,111,240,0.4);
     border-left: 3px solid {ACCENT2};
     border-radius: 16px;
     padding: 16px 18px;
     height: 100%;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
 }}
 
 /* ============================================================
@@ -512,12 +412,17 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 }}
 
 div[data-testid="stVerticalBlockBorderWrapper"] {{
-    background: rgba(22, 26, 38, 0.45) !important;
-    backdrop-filter: blur(22px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
-    border: 1px solid rgba(255,255,255,0.1) !important;
+    background: rgba(24, 29, 42, 0.5) !important;
+    backdrop-filter: blur(26px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
+    border: 1px solid rgba(255,255,255,0.14) !important;
+    border-top: 1px solid rgba(255,255,255,0.26) !important;
     border-radius: 20px !important;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    box-shadow:
+        0 2px 4px rgba(0,0,0,0.25),
+        0 16px 36px rgba(0,0,0,0.4),
+        0 32px 70px rgba(0,0,0,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.1) !important;
 }}
 
 .stTabs [data-baseweb="tab-list"] {{
@@ -635,36 +540,26 @@ if _qp_view in ("auth", "landing") and not st.session_state.authenticated:
 # This is what stands in for the "animation" on the landing page: fully
 # self-contained, no external assets, loads instantly.
 # ============================================================
-def hero_stage_html():
-    """The decorative artwork for the hero: glossy orbs and warm blob
-    shapes positioned to float around and behind the glass card, echoing
-    the reference composition (cool blue sphere with sonar rings, a
-    diagonal glass tube entering from the left, warm amber blobs bleeding
-    off the lower-right edge). Pure CSS/HTML — no external images."""
+def hero_network_svg():
     return f"""
-    <div class="ix-hero-stage">
-        <div class="ix-tube" style="left:-6%; top:6%; width:340px; height:90px;
-             background: linear-gradient(135deg, #4A5A78, #2A3448);
-             transform: rotate(-18deg); opacity:0.85;"></div>
-
-        <div class="ix-blob ix-blob-soft" style="left:14%; top:-4%; width:150px; height:150px;
-             background: radial-gradient(circle at 35% 30%, #FFC978, #E8892E 60%, transparent 75%); opacity:0.8;"></div>
-
-        <div class="ix-sphere-rings" style="left:16%; top:44%; width:150px; height:150px;"></div>
-        <div class="ix-sphere-rings" style="left:12%; top:40%; width:190px; height:190px; border-color: rgba(255,255,255,0.08);"></div>
-        <div class="ix-sphere" style="left:19%; top:47%; width:110px; height:110px;
-             background: radial-gradient(circle at 32% 28%, #8FE0F5, {ACCENT} 45%, #106b73 100%);"></div>
-
-        <div class="ix-sphere" style="left:2%; top:32%; width:46px; height:46px;
-             background: radial-gradient(circle at 32% 28%, #7CC9FF, #2E6FD6 60%, #163E82 100%); z-index:1;"></div>
-
-        <div class="ix-blob ix-blob-soft" style="right:6%; bottom:-10%; width:280px; height:220px;
-             background: radial-gradient(circle at 40% 35%, #FFD79A, #E8892E 55%, transparent 78%); opacity:0.9;"></div>
-        <div class="ix-blob ix-blob-soft" style="right:-4%; bottom:2%; width:180px; height:180px;
-             background: radial-gradient(circle at 35% 30%, #FFCB8A, {ACCENT2} 70%, transparent 85%); opacity:0.55;"></div>
-        <div class="ix-blob ix-blob-soft" style="right:18%; bottom:-14%; width:120px; height:120px;
-             background: radial-gradient(circle at 35% 30%, #FFDCA8, #D9711F 60%, transparent 78%); opacity:0.75;"></div>
-    </div>
+    <svg width="100%" height="220" viewBox="0 0 600 220" style="display:block;">
+        <g stroke="{ACCENT}" stroke-width="1.4" fill="none" opacity="0.55">
+            <path d="M60 110 L220 60" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out both;"/>
+            <path d="M60 110 L220 160" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.15s both;"/>
+            <path d="M220 60 L380 100" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.3s both;"/>
+            <path d="M220 160 L380 100" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.45s both;"/>
+            <path d="M380 100 L540 55" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.6s both;"/>
+            <path d="M380 100 L540 150" stroke-dasharray="400" style="animation: ixDrawLine 1.6s ease-out 0.75s both;"/>
+        </g>
+        <circle cx="60" cy="110" r="7" fill="{CRITICAL}" style="animation: ixNodePulse 2.2s ease-in-out infinite;"/>
+        <circle cx="220" cy="60" r="4" fill="{ACCENT}" style="animation: ixNodePulse 2.2s ease-in-out 0.2s infinite;"/>
+        <circle cx="220" cy="160" r="4" fill="{ACCENT}" style="animation: ixNodePulse 2.2s ease-in-out 0.4s infinite;"/>
+        <circle cx="380" cy="100" r="5" fill="{ACCENT2}" style="animation: ixNodePulse 2.2s ease-in-out 0.6s infinite;"/>
+        <circle cx="540" cy="55" r="4" fill="{HIGH}" style="animation: ixNodePulse 2.2s ease-in-out 0.8s infinite;"/>
+        <circle cx="540" cy="150" r="4" fill="{HIGH}" style="animation: ixNodePulse 2.2s ease-in-out 1s infinite;"/>
+        <text x="60" y="132" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="{CRITICAL}">COMPROMISED</text>
+        <text x="540" y="40" text-anchor="middle" font-family="JetBrains Mono" font-size="9" fill="{HIGH}">CRITICAL SVC</text>
+    </svg>
     """
 
 
@@ -672,44 +567,46 @@ def hero_stage_html():
 # LANDING PAGE
 # ============================================================
 def render_landing():
+    nav_l, nav_r = st.columns([4, 1])
+    with nav_l:
+        st.markdown(f"""
+        <div style="display:flex; align-items:center; gap:10px; padding-top:6px;">
+            <span style="color:{ACCENT};">{icon('shield', 26)}</span>
+            <span style="font-family:'Space Grotesk',sans-serif; font-size:1.25rem; font-weight:700;">IMPACT-X</span>
+        </div>
+        """, unsafe_allow_html=True)
+    with nav_r:
+        if st.button("Sign In", key="nav_signin", use_container_width=True):
+            goto("auth")
+            st.rerun()
+
     st.markdown('<div class="ix-hero-wrap">', unsafe_allow_html=True)
-    st.markdown(hero_stage_html(), unsafe_allow_html=True)
 
     st.markdown(f"""
-    <div class="ix-glass-card ix-fade-1">
-        <div class="ix-glass-nav">
-            <div class="ix-glass-nav-brand">
-                <span style="color:{ACCENT};">{icon('shield', 24)}</span>
-                IMPACT-X
-            </div>
-            <div class="ix-glass-nav-links">
-                <a href="#capabilities">Capabilities</a><span class="sep">|</span>
-                <a href="#why-impact-x">Why Us</a><span class="sep">|</span>
-                <a href="#limitations">Limitations</a>
-            </div>
-            <a href="?view=auth" target="_self" class="ix-pill-link">Sign In</a>
-        </div>
-
+    <div class="ix-fade-1" style="max-width: 760px;">
         <div class="ix-eyebrow">IDENTITY-CENTRIC THREAT INTELLIGENCE</div>
-        <div style="font-family:'Space Grotesk',sans-serif; font-size:2.9rem; font-weight:700; line-height:1.08; margin: 10px 0 18px 0; max-width:600px;">
+        <div style="font-family:'Space Grotesk',sans-serif; font-size:3.1rem; font-weight:700; line-height:1.08; margin: 10px 0 18px 0;">
             See every path an attacker<br><span class="ix-gradient-text">could actually take.</span>
         </div>
-        <div style="color:#C7CEDC; font-size:1rem; max-width:520px; line-height:1.65;">
+        <div style="color:#7C879C; font-size:1.05rem; max-width:600px; line-height:1.6;">
             IMPACT-X models your organization's identities and systems as a live graph, so a single
             compromised account instantly reveals its full blast radius — not just an isolated alert.
         </div>
-
-        <div style="margin-top:28px;">
-            <a href="?view=auth" target="_self" class="ix-pill-link ix-pill-link-solid">
-                Get Started {icon('arrow-right', 15, 'currentColor')}
-            </a>
-        </div>
-
-        <div class="ix-hero-dots">
-            <span></span><span class="active"></span><span></span>
-        </div>
     </div>
     """, unsafe_allow_html=True)
+
+    st.write("")
+    cta1, _ = st.columns([1.1, 3.4])
+    with cta1:
+        if st.button("Get Started", key="hero_cta", type="primary", use_container_width=True,
+                      icon=":material/arrow_forward:"):
+            goto("auth")
+            st.rerun()
+
+    st.write("")
+    st.markdown('<div class="ix-card ix-fade-2">', unsafe_allow_html=True)
+    st.markdown(hero_network_svg(), unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
     st.write("")
