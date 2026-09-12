@@ -36,7 +36,7 @@ from incident_engine import simulate_incident, get_all_incidents, clear_incident
 from risk_engine import prioritize_all_open_incidents, score_incident
 from graph_engine import build_graph
 from ai_analyst import explain_incident
-from auth import init_auth_table, create_user, verify_user, validate_signup_input
+from auth import init_auth_table, create_user, verify_user, validate_signup_input, storage_mode
 from feedback import init_feedback_table, submit_feedback, get_feedback_summary, CATEGORIES
 
 try:
@@ -720,6 +720,15 @@ def render_auth():
 
     _, center_col, _ = st.columns([1, 1.3, 1])
     with center_col:
+        if storage_mode() != "postgres":
+            st.markdown(f"""
+            <div class="ix-limit-card" style="margin-bottom:14px; text-align:center;">
+                <div style="font-size:0.82rem; color:#E7ECF5;">
+                    Running in demo storage mode — accounts created now may not be saved permanently
+                    until persistent storage is configured for this deployment.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
         with st.container(border=True):
             tab_signin, tab_signup = st.tabs(["Sign In", "Create Account"])
 
@@ -770,7 +779,14 @@ def render_auth():
                         else:
                             ok, msg = create_user(su_username.strip(), su_email.strip(), su_password)
                             if ok:
-                                st.success(f"{msg} You can now sign in from the Sign In tab.")
+                                # Account created -> sign them in immediately and
+                                # drop them straight onto the dashboard instead of
+                                # making them re-enter credentials on another tab.
+                                st.session_state.authenticated = True
+                                st.session_state.current_user = su_username.strip()
+                                st.toast("Account created — you're in.", icon="✅")
+                                goto("dashboard")
+                                st.rerun()
                             else:
                                 st.error(msg)
                     else:
