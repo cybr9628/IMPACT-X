@@ -415,29 +415,23 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
     [data-testid="stDataFrame"] {{ font-size: 0.75rem !important; }}
     .ix-hero-wrap {{ padding: 1.6rem 0 1rem 0 !important; }}
 
-    /* Scoped 2-up grids for card rows on phones. Each of these keys
-       wraps ONE specific st.columns() row (see app.py), so this only
-       touches small cards — charts, dataframes, and the blast-radius
-       explorer are left at their default full-width mobile stacking
-       because they actually need the room. */
-    .st-key-grid-stats [data-testid="stHorizontalBlock"],
-    .st-key-grid-features [data-testid="stHorizontalBlock"],
-    .st-key-grid-steps [data-testid="stHorizontalBlock"],
-    .st-key-grid-why [data-testid="stHorizontalBlock"],
-    .st-key-grid-limits [data-testid="stHorizontalBlock"],
-    .st-key-grid-kpis [data-testid="stHorizontalBlock"],
-    .st-key-grid-mini [data-testid="stHorizontalBlock"] {{
+    /* 2-up grid for small repeating cards on phones, using :has() to
+       target only rows whose columns contain our own .ix-grid-2up
+       marker — not dependent on any Streamlit-version-specific class
+       (the earlier st-key-* approach silently didn't apply on some
+       deployments). Charts, dataframes, and the blast-radius explorer
+       never carry this marker, so they're untouched and keep stacking
+       full-width, which is what they actually need. */
+    [data-testid="stHorizontalBlock"]:has(.ix-grid-2up),
+    [data-testid="stHorizontalBlock"]:has(.ix-feature-card),
+    [data-testid="stHorizontalBlock"]:has(.ix-why-card) {{
         flex-wrap: wrap !important;
         row-gap: 10px !important;
         column-gap: 10px !important;
     }}
-    .st-key-grid-stats [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-features [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-steps [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-why [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-limits [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-kpis [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-mini [data-testid="stHorizontalBlock"] > div {{
+    [data-testid="stHorizontalBlock"]:has(.ix-grid-2up) > div,
+    [data-testid="stHorizontalBlock"]:has(.ix-feature-card) > div,
+    [data-testid="stHorizontalBlock"]:has(.ix-why-card) > div {{
         flex: 1 1 calc(50% - 6px) !important;
         min-width: calc(50% - 6px) !important;
         width: calc(50% - 6px) !important;
@@ -451,11 +445,9 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 /* Extra-narrow phones (<420px): drop even the 2-up small-card grids to
    a single column so text never gets squeezed unreadably. */
 @media (max-width: 420px) {{
-    .st-key-grid-stats [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-features [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-steps [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-why [data-testid="stHorizontalBlock"] > div,
-    .st-key-grid-kpis [data-testid="stHorizontalBlock"] > div {{
+    [data-testid="stHorizontalBlock"]:has(.ix-grid-2up) > div,
+    [data-testid="stHorizontalBlock"]:has(.ix-feature-card) > div,
+    [data-testid="stHorizontalBlock"]:has(.ix-why-card) > div {{
         flex: 1 1 100% !important;
         min-width: 100% !important;
         width: 100% !important;
@@ -717,7 +709,7 @@ def render_landing():
         for col, (num, label) in zip(stat_cols, stats):
             with col:
                 st.markdown(f"""
-                <div class="ix-card ix-fade-2" style="text-align:center;">
+                <div class="ix-card ix-fade-2 ix-grid-2up" style="text-align:center;">
                     <div class="ix-stat-num">{num}</div>
                     <div class="ix-stat-label">{label}</div>
                 </div>
@@ -768,7 +760,7 @@ def render_landing():
         for col, (n, desc) in zip(scols, steps):
             with col:
                 st.markdown(f"""
-                <div class="ix-card">
+                <div class="ix-card ix-grid-2up">
                     <div class="ix-step-num">{n}</div>
                     <div style="color:#E7ECF5; font-size:0.9rem; line-height:1.5;">{desc}</div>
                 </div>
@@ -818,7 +810,7 @@ def render_landing():
         for i, text in enumerate(limits):
             with lcols[i % 2]:
                 st.markdown(f"""
-                <div class="ix-limit-card" style="margin-bottom:10px;">
+                <div class="ix-limit-card ix-grid-2up" style="margin-bottom:10px;">
                     <div style="color:#E7ECF5; font-size:0.86rem; line-height:1.5;">{text}</div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -1182,7 +1174,7 @@ with kpi_col:
         for col, label, value, color in kpis:
             c = color or "#E7ECF5"
             col.markdown(f"""
-            <div class="ix-card">
+            <div class="ix-card ix-grid-2up">
                 <div class="ix-kpi-label">{label}</div>
                 <div class="ix-kpi-value" style="color:{c};">{value}</div>
             </div>
@@ -1192,12 +1184,12 @@ with kpi_col:
     with st.container(key="grid-mini"):
         a1, a2 = st.columns(2)
         a1.markdown(f"""
-        <div class="ix-card">
+        <div class="ix-card ix-grid-2up">
             <div class="ix-kpi-label">Assets Monitored</div>
             <div class="ix-kpi-value" style="font-size:1.5rem;">{total_assets_monitored}</div>
         </div>""", unsafe_allow_html=True)
         a2.markdown(f"""
-        <div class="ix-card">
+        <div class="ix-card ix-grid-2up">
             <div class="ix-kpi-label">Identities Tracked</div>
             <div class="ix-kpi-value" style="font-size:1.5rem;">{sum(1 for _,d in graph.nodes(data=True) if d.get('node_type')=='user')}</div>
         </div>""", unsafe_allow_html=True)
