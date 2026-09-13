@@ -28,6 +28,19 @@ BACKEND_DIR = os.path.join(os.path.dirname(__file__), "..", "backend")
 sys.path.insert(0, BACKEND_DIR)
 
 import streamlit as st
+
+# st.fragment (Streamlit >=1.33) scopes a rerun to just one section of the
+# page instead of the whole script — this is the single biggest lever for
+# "clicking anything feels slow," since Streamlit reruns top-to-bottom on
+# every interaction by default. Shimmed so this still runs on older
+# Streamlit versions (just without the perf benefit).
+if hasattr(st, "fragment"):
+    fragment = st.fragment
+else:
+    def fragment(func=None, **kwargs):
+        if func is None:
+            return lambda f: f
+        return func
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -37,7 +50,14 @@ from risk_engine import prioritize_all_open_incidents, score_incident
 from graph_engine import build_graph
 from ai_analyst import explain_incident
 from auth import init_auth_table, create_user, verify_user, validate_signup_input, storage_mode
-from feedback import init_feedback_table, submit_feedback, get_feedback_summary, CATEGORIES
+from feedback import init_feedback_table, submit_feedback, get_feedback_summary as _get_feedback_summary_raw, CATEGORIES
+
+@st.cache_data(ttl=15, show_spinner=False)
+def get_feedback_summary():
+    """15s cache: feedback is read far more often than it's written, and
+    this avoids re-scanning the FEEDBACK table on every single rerun of
+    the feedback page (e.g. while someone is just typing in the form)."""
+    return _get_feedback_summary_raw()
 
 try:
     from database import get_data_version
@@ -62,10 +82,17 @@ RISK_COLOR = {"CRITICAL": CRITICAL, "HIGH": HIGH, "MEDIUM": MEDIUM, "LOW": LOW}
 ACCENT = "#21D4E0"
 ACCENT2 = "#7C6FF0"
 
+# NOTE: no external font loading here on purpose. The font-family stacks
+# below list 'Space Grotesk' / 'Inter' / 'JetBrains Mono' first, but since
+# nothing actually fetches those fonts, the browser silently falls
+# through to the system sans-serif/monospace fallback already listed in
+# each stack — zero third-party network requests, and one less thing that
+# can be slow on a cold load. Text renders in the OS's default font
+# instead of the custom typeface; that's the trade-off for removing the
+# dependency.
+
 st.markdown(f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 #MainMenu {{visibility: hidden;}}
 footer {{visibility: hidden;}}
 header [data-testid="stToolbarActions"] {{ display: none; }}
@@ -524,6 +551,47 @@ if "view" not in st.session_state:
     st.session_state.view = "landing"
 if "dashboard_view" not in st.session_state:
     st.session_state.dashboard_view = "main"
+if "_splash_shown" not in st.session_state:
+    st.session_state._splash_shown = False
+
+# One-time opening animation. Pure CSS (no JS timers, nothing that can
+# hang) — fades itself out and stops blocking clicks after ~1.6s. Gated
+# behind a session_state flag so it plays once on first load, never again
+# on every button click/rerun (which would make the app feel SLOWER, the
+# opposite of the point).
+if not st.session_state._splash_shown:
+    st.markdown(f"""
+    <style>
+    @keyframes ixSplashFade {{
+        0%   {{ opacity: 1; }}
+        75%  {{ opacity: 1; }}
+        100% {{ opacity: 0; visibility: hidden; }}
+    }}
+    @keyframes ixSplashPulse {{
+        0%, 100% {{ transform: scale(1); opacity: 1; }}
+        50%      {{ transform: scale(1.08); opacity: 0.8; }}
+    }}
+    #ix-splash {{
+        position: fixed; inset: 0; z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 14px;
+        background: #06080F;
+        animation: ixSplashFade 1.6s ease forwards;
+        pointer-events: none;
+    }}
+    #ix-splash .ix-splash-icon {{ color: {ACCENT}; animation: ixSplashPulse 1s ease-in-out infinite; }}
+    #ix-splash .ix-splash-word {{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:1.4rem; color:#E7ECF5; letter-spacing:0.02em; }}
+    #ix-splash .ix-splash-bar {{ width:120px; height:3px; border-radius:2px; background: rgba(255,255,255,0.1); overflow:hidden; }}
+    #ix-splash .ix-splash-bar-fill {{ height:100%; width:40%; background: linear-gradient(90deg,{ACCENT},{ACCENT2}); animation: ixSplashSlide 1s ease-in-out infinite; }}
+    @keyframes ixSplashSlide {{ 0% {{ margin-left:-40%; }} 100% {{ margin-left:100%; }} }}
+    </style>
+    <div id="ix-splash">
+        <div class="ix-splash-icon">{icon('shield', 44)}</div>
+        <div class="ix-splash-word">IMPACT-X</div>
+        <div class="ix-splash-bar"><div class="ix-splash-bar-fill"></div></div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.session_state._splash_shown = True
 
 # Plain <a href="?view=auth"> links inside the hero glass card (instead of
 # st.button) let the CTA/Sign In links sit exactly where the design needs
@@ -598,8 +666,7 @@ def render_landing():
     st.write("")
     cta1, _ = st.columns([1.1, 3.4])
     with cta1:
-        if st.button("Get Started", key="hero_cta", type="primary", use_container_width=True,
-                      icon=":material/arrow_forward:"):
+        if st.button("Get Started", key="hero_cta", type="primary", use_container_width=True):
             goto("auth")
             st.rerun()
 
@@ -852,6 +919,7 @@ def render_feedback():
                     st.session_state.get("current_user", "anonymous"),
                     category, rating, comments.strip(), improvement.strip(),
                 )
+                get_feedback_summary.clear()
                 st.success("Thanks — your feedback was recorded.")
                 st.rerun()
             else:
@@ -927,43 +995,54 @@ with st.sidebar:
     st.divider()
 
     nav1, nav2 = st.columns(2)
-    if nav1.button("Dashboard", use_container_width=True, icon=":material/space_dashboard:"):
+    if nav1.button("Dashboard", use_container_width=True):
         st.session_state.dashboard_view = "main"
         st.rerun()
-    if nav2.button("Feedback", use_container_width=True, icon=":material/rate_review:"):
+    if nav2.button("Feedback", use_container_width=True):
         st.session_state.dashboard_view = "feedback"
         st.rerun()
 
     st.divider()
 
-    st.markdown("**Simulate an Incident**")
-    sim_privilege = st.selectbox("Force identity privilege", ["Random", "standard", "elevated", "admin"])
-    sim_type = st.selectbox("Incident type", ["Random"] + INCIDENT_TYPES)
+    @fragment
+    def _simulate_sidebar_fragment():
+        st.markdown("**Simulate an Incident**")
+        sim_privilege = st.selectbox("Force identity privilege", ["Random", "standard", "elevated", "admin"])
+        sim_type = st.selectbox("Incident type", ["Random"] + INCIDENT_TYPES)
 
-    if st.button("Simulate Incident", use_container_width=True, icon=":material/bolt:"):
-        if rate_limited("simulate_incident", cooldown_seconds=2):
-            privilege_arg = None if sim_privilege == "Random" else sim_privilege
-            type_arg = None if sim_type == "Random" else sim_type
-            incident = simulate_incident(privilege_level=privilege_arg, incident_type=type_arg)
-            st.success(f"Incident #{incident['incident_id']} logged: {incident['entity_name']}")
-        else:
-            st.warning("Please wait a moment before simulating another incident.")
+        if st.button("Simulate Incident", use_container_width=True):
+            if rate_limited("simulate_incident", cooldown_seconds=2):
+                privilege_arg = None if sim_privilege == "Random" else sim_privilege
+                type_arg = None if sim_type == "Random" else sim_type
+                incident = simulate_incident(privilege_level=privilege_arg, incident_type=type_arg)
+                st.success(f"Incident #{incident['incident_id']} logged: {incident['entity_name']}")
+                # This action changes data the rest of the dashboard depends
+                # on (KPIs, charts, queue) — those live outside this
+                # fragment, so a full rerun is the correct, intentional
+                # choice here (unlike just moving the dropdowns above).
+                time.sleep(0.4)
+                st.rerun()
+            else:
+                st.warning("Please wait a moment before simulating another incident.")
 
-    if st.button("Reset All Incidents", use_container_width=True, icon=":material/restart_alt:"):
-        if rate_limited("reset_incidents", cooldown_seconds=3):
-            clear_incidents()
-            get_graph.clear()
-            get_ranked_incidents.clear()
-            st.info("All incidents cleared.")
-        else:
-            st.warning("Please wait a moment before resetting again.")
+        if st.button("Reset All Incidents", use_container_width=True):
+            if rate_limited("reset_incidents", cooldown_seconds=3):
+                clear_incidents()
+                get_graph.clear()
+                get_ranked_incidents.clear()
+                st.info("All incidents cleared.")
+                st.rerun()
+            else:
+                st.warning("Please wait a moment before resetting again.")
+
+    _simulate_sidebar_fragment()
 
     st.divider()
     st.caption("Simulated demo data — no real infrastructure is represented.")
     st.caption("NovaTech Corporation")
 
     st.divider()
-    if st.button("Log Out", use_container_width=True, icon=":material/logout:"):
+    if st.button("Log Out", use_container_width=True):
         st.session_state.authenticated = False
         st.session_state.pop("current_user", None)
         goto("landing")
@@ -1213,94 +1292,99 @@ st.dataframe(
 st.write("")
 
 # ============================================================
-# BLAST RADIUS EXPLORER
+# BLAST RADIUS EXPLORER + INCIDENT ANALYSIS
+# Scoped into one fragment: switching the selected incident, expanding
+# the risk breakdown, or generating an AI summary now only reruns THIS
+# section — not the gauge, the four charts, or the queue table above,
+# which were previously rebuilt on every single click in here.
 # ============================================================
-st.markdown(f'<div class="ix-section-title">{icon("target", 20)} Blast Radius Explorer</div>', unsafe_allow_html=True)
+@fragment
+def _blast_radius_fragment(ranked):
+    st.markdown(f'<div class="ix-section-title">{icon("target", 20)} Blast Radius Explorer</div>', unsafe_allow_html=True)
 
-incident_options = {f"#{r['incident']['id']} — {r['incident']['user_name']} ({r['incident']['incident_type']})": r
-                     for r in ranked}
-selected_label = st.selectbox("Select an incident to investigate:", list(incident_options.keys()))
-selected = incident_options[selected_label]
+    incident_options = {f"#{r['incident']['id']} — {r['incident']['user_name']} ({r['incident']['incident_type']})": r
+                         for r in ranked}
+    selected_label = st.selectbox("Select an incident to investigate:", list(incident_options.keys()))
+    selected = incident_options[selected_label]
 
-inc = selected["incident"]
-br = selected["blast_radius"]
-risk = selected["risk"]
+    inc = selected["incident"]
+    br = selected["blast_radius"]
+    risk = selected["risk"]
 
-colA, colB = st.columns([1, 2])
+    colA, colB = st.columns([1, 2])
 
-with colA:
-    st.markdown(f"""
-    <div class="ix-card">
-        <div style="margin-bottom:10px;">{risk_badge(risk['status'])} <span class="ix-mono" style="font-size:1.3rem; margin-left:8px;">{risk['score']}/100</span></div>
-        <div style="color:#7C879C; font-size:0.85rem;">ENTITY</div>
-        <div style="font-weight:600; margin-bottom:8px;">{inc['user_name']} — {inc['role']}, {inc['department']}</div>
-        <div style="color:#7C879C; font-size:0.85rem;">PRIVILEGE</div>
-        <div style="font-weight:600; margin-bottom:8px;">{inc['privilege_level']}</div>
-        <div style="color:#7C879C; font-size:0.85rem;">INCIDENT</div>
-        <div style="font-weight:600; margin-bottom:8px;">{inc['incident_type']}</div>
-        <hr>
-        <div class="ix-mono" style="font-size:0.85rem; line-height:1.8;">
-        Reachable Assets: <b>{br['reachable_count']}</b><br>
-        Critical Assets: <b>{br['critical_count']}</b><br>
-        Sensitive Data: <b>{br['sensitive_count']}</b><br>
-        Business Services: <b>{br['business_services_count']}</b>
+    with colA:
+        st.markdown(f"""
+        <div class="ix-card">
+            <div style="margin-bottom:10px;">{risk_badge(risk['status'])} <span class="ix-mono" style="font-size:1.3rem; margin-left:8px;">{risk['score']}/100</span></div>
+            <div style="color:#7C879C; font-size:0.85rem;">ENTITY</div>
+            <div style="font-weight:600; margin-bottom:8px;">{inc['user_name']} — {inc['role']}, {inc['department']}</div>
+            <div style="color:#7C879C; font-size:0.85rem;">PRIVILEGE</div>
+            <div style="font-weight:600; margin-bottom:8px;">{inc['privilege_level']}</div>
+            <div style="color:#7C879C; font-size:0.85rem;">INCIDENT</div>
+            <div style="font-weight:600; margin-bottom:8px;">{inc['incident_type']}</div>
+            <hr>
+            <div class="ix-mono" style="font-size:0.85rem; line-height:1.8;">
+            Reachable Assets: <b>{br['reachable_count']}</b><br>
+            Critical Assets: <b>{br['critical_count']}</b><br>
+            Sensitive Data: <b>{br['sensitive_count']}</b><br>
+            Business Services: <b>{br['business_services_count']}</b>
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-    with st.expander("Risk Score Breakdown"):
-        for factor, val in risk["breakdown"].items():
-            st.write(f"- {factor.replace('_', ' ').title()}: {val}")
+        with st.expander("Risk Score Breakdown"):
+            for factor, val in risk["breakdown"].items():
+                st.write(f"- {factor.replace('_', ' ').title()}: {val}")
 
-with colB:
-    st.markdown("#### Directly Accessible Assets")
-    if br["directly_accessible"]:
-        st.dataframe(pd.DataFrame([
-            {"Asset": d["label"], "Type": d["node_type"], "Via": d["via"]} for d in br["directly_accessible"]
-        ]), use_container_width=True, hide_index=True)
+    with colB:
+        st.markdown("#### Directly Accessible Assets")
+        if br["directly_accessible"]:
+            st.dataframe(pd.DataFrame([
+                {"Asset": d["label"], "Type": d["node_type"], "Via": d["via"]} for d in br["directly_accessible"]
+            ]), use_container_width=True, hide_index=True)
+        else:
+            st.caption("None")
+
+        st.markdown("#### Affected Business Services & Attack Paths")
+        if br["business_services_affected"]:
+            for svc in br["business_services_affected"]:
+                path_str = " → ".join(svc["attack_path"]) if svc["attack_path"] else "N/A"
+                st.markdown(f"**{svc['label']}** ({svc['criticality']}) &nbsp; `{path_str}`")
+        else:
+            st.caption("None reachable — low-impact incident.")
+
+        st.markdown("#### All Reachable Assets")
+        if br["all_reachable"]:
+            st.dataframe(pd.DataFrame([
+                {"Asset": n["label"], "Type": n["node_type"], "Sensitivity": n.get("data_sensitivity") or "-"}
+                for n in br["all_reachable"]
+            ]), use_container_width=True, hide_index=True)
+
+    st.write("")
+
+    st.markdown(f'<div class="ix-section-title">{icon("document", 20)} Incident Analysis</div>', unsafe_allow_html=True)
+    st.caption("An AI-assisted engine turns the raw numbers above into a plain-language brief — no security background needed to read it.")
+
+    ai_key = f"ai_explanation_{inc['id']}"
+
+    if st.button("Generate Summary", key=f"explain_btn_{inc['id']}"):
+        if rate_limited(f"explain_{inc['id']}", cooldown_seconds=5):
+            with st.spinner("Analyzing incident context..."):
+                st.session_state[ai_key] = explain_incident(inc, br, risk)
+        else:
+            st.warning("Please wait a few seconds before requesting another summary.")
+
+    if ai_key in st.session_state:
+        result = st.session_state[ai_key]
+        st.markdown(f"""
+        <div class="ix-card" style="border-left: 3px solid {ACCENT};">
+            <div class="ix-kpi-label" style="margin-bottom:8px;">SUMMARY</div>
+            <div style="line-height:1.6;">{escape(str(result.get('explanation', '')))}</div>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.caption("None")
+        st.caption("Click above to generate a concise summary of this incident's impact.")
 
-    st.markdown("#### Affected Business Services & Attack Paths")
-    if br["business_services_affected"]:
-        for svc in br["business_services_affected"]:
-            path_str = " → ".join(svc["attack_path"]) if svc["attack_path"] else "N/A"
-            st.markdown(f"**{svc['label']}** ({svc['criticality']}) &nbsp; `{path_str}`")
-    else:
-        st.caption("None reachable — low-impact incident.")
 
-    st.markdown("#### All Reachable Assets")
-    if br["all_reachable"]:
-        st.dataframe(pd.DataFrame([
-            {"Asset": n["label"], "Type": n["node_type"], "Sensitivity": n.get("data_sensitivity") or "-"}
-            for n in br["all_reachable"]
-        ]), use_container_width=True, hide_index=True)
-
-st.write("")
-
-# ============================================================
-# INCIDENT ANALYSIS
-# ============================================================
-st.markdown(f'<div class="ix-section-title">{icon("document", 20)} Incident Analysis</div>', unsafe_allow_html=True)
-st.caption("An AI-assisted engine turns the raw numbers above into a plain-language brief — no security background needed to read it.")
-
-ai_key = f"ai_explanation_{inc['id']}"
-
-if st.button("Generate Summary", key=f"explain_btn_{inc['id']}", icon=":material/summarize:"):
-    if rate_limited(f"explain_{inc['id']}", cooldown_seconds=5):
-        with st.spinner("Analyzing incident context..."):
-            st.session_state[ai_key] = explain_incident(inc, br, risk)
-    else:
-        st.warning("Please wait a few seconds before requesting another summary.")
-
-if ai_key in st.session_state:
-    result = st.session_state[ai_key]
-    st.markdown(f"""
-    <div class="ix-card" style="border-left: 3px solid {ACCENT};">
-        <div class="ix-kpi-label" style="margin-bottom:8px;">SUMMARY</div>
-        <div style="line-height:1.6;">{escape(str(result.get('explanation', '')))}</div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.caption("Click above to generate a concise summary of this incident's impact.")
-    
+_blast_radius_fragment(ranked)
