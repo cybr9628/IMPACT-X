@@ -115,8 +115,8 @@ html, body, [class*="css"] {{
 
 section[data-testid="stSidebar"] {{
     background: rgba(14, 18, 27, 0.7);
-    backdrop-filter: blur(20px) saturate(160%);
-    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
     border-right: 1px solid rgba(255,255,255,0.1);
     box-shadow: 8px 0 30px rgba(0,0,0,0.35);
 }}
@@ -144,8 +144,8 @@ h1, h2, h3 {{ font-family: 'Space Grotesk', sans-serif !important; letter-spacin
 
 .ix-card {{
     background: rgba(24, 29, 42, 0.5);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
     border: 1px solid rgba(255,255,255,0.14);
     border-top: 1px solid rgba(255,255,255,0.24);
     border-radius: 18px;
@@ -207,21 +207,53 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 .stButton > button {{
     font-family: 'Inter', sans-serif;
     border-radius: 999px;
-    border: 1px solid rgba(255,255,255,0.12);
-    background: rgba(255,255,255,0.04);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.05);
+    /* No backdrop-filter here on purpose — blur is expensive to
+       recompute and a page can have a dozen+ buttons (sidebar alone has
+       6). Applying GPU-heavy blur to every one of them is what was
+       making clicks/hovers feel laggy. Cards keep the glass blur since
+       there are only a handful of those per screen. */
+    transition: transform 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}}
+.stButton > button:hover {{
+    border-color: rgba(255,255,255,0.3);
+    background: rgba(255,255,255,0.09);
+}}
+.stButton > button:active {{
+    transform: scale(0.96);
+    transition: transform 0.05s ease;
 }}
 .stButton > button[kind="primary"] {{
     background: linear-gradient(90deg, {ACCENT}, {ACCENT2});
     border: none;
     box-shadow: 0 4px 18px {ACCENT}44;
 }}
+.stButton > button[kind="primary"]:active {{
+    transform: scale(0.96);
+    box-shadow: 0 2px 10px {ACCENT}66;
+}}
 
 .stTextInput input, .stSelectbox [data-baseweb="select"] > div, .stTextArea textarea {{
     background: rgba(255,255,255,0.04) !important;
     border-radius: 12px !important;
     border: 1px solid rgba(255,255,255,0.1) !important;
+    transition: border-color 0.15s ease, background 0.15s ease !important;
+}}
+.stTextInput input:focus, .stTextArea textarea:focus {{
+    border-color: {ACCENT}88 !important;
+    background: rgba(255,255,255,0.07) !important;
+}}
+
+/* Quick fade-in on freshly rendered content after a rerun, so updates
+   feel like a smooth transition instead of an abrupt snap. Short enough
+   (180ms) that it reads as responsive, not as *added* delay. */
+[data-testid="stVerticalBlock"] > [data-testid="stElementContainer"] {{
+    animation: ixContentFadeIn 0.18s ease-out both;
+}}
+@keyframes ixContentFadeIn {{
+    from {{ opacity: 0; transform: translateY(2px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
 }}
 
 /* ============================================================
@@ -281,8 +313,8 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 
 .ix-feature-card {{
     background: rgba(24, 29, 42, 0.45);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
     border: 1px solid rgba(255,255,255,0.14);
     border-top: 1px solid rgba(255,255,255,0.26);
     border-radius: 18px;
@@ -332,8 +364,8 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 
 .ix-why-card {{
     background: linear-gradient(180deg, rgba(24,29,42,0.5), rgba(18,21,32,0.35));
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    backdrop-filter: blur(14px) saturate(180%);
+    -webkit-backdrop-filter: blur(14px) saturate(180%);
     border: 1px solid rgba(33,212,224,0.28);
     border-top: 1px solid rgba(33,212,224,0.4);
     border-radius: 18px;
@@ -348,8 +380,8 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 
 .ix-limit-card {{
     background: rgba(24, 29, 42, 0.45);
-    backdrop-filter: blur(20px) saturate(170%);
-    -webkit-backdrop-filter: blur(20px) saturate(170%);
+    backdrop-filter: blur(14px) saturate(170%);
+    -webkit-backdrop-filter: blur(14px) saturate(170%);
     border: 1px solid rgba(124,111,240,0.24);
     border-top: 1px solid rgba(124,111,240,0.4);
     border-left: 3px solid {ACCENT2};
@@ -433,15 +465,14 @@ div[data-testid="stMetricValue"] {{ font-family: 'Space Grotesk', sans-serif; }}
 /* ============================================================
    GLASS POLISH — badges, bordered auth container, sticky-feel header
    ============================================================ */
-.ix-badge {{
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
-}}
+/* Badges intentionally have no backdrop-filter — they're small, solid-
+   fill pill chips (see risk_badge()), so there's no glass effect to blur
+   in the first place, and skipping it avoids pointless compositing cost. */
 
 div[data-testid="stVerticalBlockBorderWrapper"] {{
     background: rgba(24, 29, 42, 0.5) !important;
-    backdrop-filter: blur(26px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(26px) saturate(180%) !important;
+    backdrop-filter: blur(14px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(180%) !important;
     border: 1px solid rgba(255,255,255,0.14) !important;
     border-top: 1px solid rgba(255,255,255,0.26) !important;
     border-radius: 20px !important;
